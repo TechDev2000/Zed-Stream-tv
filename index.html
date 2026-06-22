@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#060608">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ZedStream — Movies & TV Shows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8"></script>
+
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+<base target="_blank">
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Sidebar Overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo-text" style="display:none">Zed<span>Stream</span></div>
+    <button class="sidebar-close" id="sidebarClose">×</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-nav-title">Discover</div>
+    <div class="sidebar-nav-item active" data-view="browse" id="navBrowse">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>
+      Browse
+    </div>
+    <div class="sidebar-nav-item" data-view="movies" id="navMovies">
+      <svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"></path></svg>
+      Movies
+    </div>
+    <div class="sidebar-nav-item" data-view="tv" id="navTV">
+      <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM5 15h14v3H5z"></path></svg>
+      TV Shows
+    </div>
+    <div class="sidebar-nav-item" data-view="livetv" id="navLiveTV">
+      <svg viewBox="0 0 24 24"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"></path></svg>
+      Live TV
+      <span class="badge" id="liveBadge" style="display:none">LIVE</span>
+    </div>
+    <div class="sidebar-nav-item" data-view="kids" id="navKids">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>
+      Kids
+      <span class="badge" id="kidsBadge" style="display:none">KIDS</span>
+    </div>
+    <div class="sidebar-nav-title">My Library</div>
+    <div class="sidebar-nav-item" data-view="watchlist" id="navWatchlist">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+      Watchlist
+      <span class="badge" id="watchlistBadge" style="display:none">0</span>
+    </div>
+    <div class="sidebar-nav-item" data-view="continue" id="navContinue">
+      <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"></path></svg>
+      Continue Watching
+      <span class="badge" id="continueBadge" style="display:none">0</span>
+    </div>
+    <div class="sidebar-nav-title" style="margin-top:20px;">Account</div>
+    <div class="sidebar-nav-item" data-view="profile" id="navProfile">
+      <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
+      My Account
+    </div>
+
+    <div class="sidebar-nav-item" id="navSignOut" style="color: var(--accent-hover);">
+      <svg viewBox="0 0 24 24" style="fill: var(--accent);"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"></path></svg>
+      Sign Out
+    </div>
+
+    
+    <div class="sidebar-nav-title" style="margin-top:20px;">Parental Controls</div>
+    <button class="lock-18-btn locked" id="lock18SidebarBtn" style="width:100%;text-align:left;margin-top:4px;" onclick="handleLock18Click()">
+      <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"></path></svg>
+      <span id="lock18SidebarText">18+ Locked</span>
+    </button>
+  </nav>
+  <div class="sidebar-footer"></div>
+</aside>
+
+<header>
+  <div class="header-left">
+    <button class="menu-btn" id="menuBtn">
+      <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"></path></svg>
+    </button>
+    <div class="logo" onclick="switchTab('movies')" style="display:none">Zed<span>Stream</span></div>
+  </div>
+  <div class="tab-group" id="tabGroup">
+    <button class="tab-btn active" data-type="movies">Movies</button>
+    <button class="tab-btn" data-type="tv">TV Shows</button>
+    <button class="tab-btn" data-type="kids_movies">Kids Movies</button>
+    <button class="tab-btn" data-type="kids_tv">Kids TV</button>
+    <button class="tab-btn" data-type="livetv">Live TV</button>
+  </div>
+  <div class="search-row">
+    <div class="search-spinner" id="searchSpinner"></div>
+    <input type="text" id="searchInput" placeholder="Search everything..." autocomplete="off" />
+    <button id="searchClearBtn" class="search-clear-btn" style="display:none;" title="Clear search">×</button>
+    <button id="searchBtn">Search</button>
+  </div>
+</header>
+
+<!-- Hero Carousel — Netflix Style v2.0 -->
+<div class="hero-carousel" id="heroCarousel">
+  <div class="hero-carousel-track" id="heroCarouselTrack"></div>
+
+  <!-- Navigation Arrows with SVG icons -->
+  <button class="hero-carousel-nav prev" id="heroPrevBtn" aria-label="Previous slide">
+    <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path></svg>
+  </button>
+  <button class="hero-carousel-nav next" id="heroNextBtn" aria-label="Next slide">
+    <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg>
+  </button>
+
+  <!-- Netflix-style progress bars -->
+  <div class="hero-carousel-progress" id="heroCarouselProgress"></div>
+
+  <!-- Fallback dots for mobile -->
+  <div class="hero-carousel-dots" id="heroCarouselDots"></div>
+
+  <!-- Rank number (optional, for top 10 style) -->
+  <div class="hero-rank" id="heroRank" style="display:none"></div>
+
+  <!-- Content overlay -->
+  <div class="hero-content" id="heroContent">
+    <div class="hero-badge" id="heroBadge">Featured</div>
+    <h1 class="hero-title" id="heroTitle">Loading...</h1>
+    <div class="hero-meta" id="heroMeta"></div>
+    <p class="hero-overview" id="heroOverview"></p>
+    <div class="hero-actions">
+      <button class="hero-btn" id="heroBtn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"></path></svg>
+        Play Now
+      </button>
+      <button class="hero-btn secondary" id="heroWatchlistBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+        <span id="heroWatchlistText">Add to Watchlist</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Continue Watching Section -->
+<div class="slider-section hidden" id="continueWatchingSection">
+  <div class="slider-header">
+    <div class="slider-title"><span class="fire">⏸</span> Continue Watching</div>
+    <div class="slider-nav">
+      <button class="slider-nav-btn" id="continuePrev">‹</button>
+      <button class="slider-nav-btn" id="continueNext">›</button>
+    </div>
+  </div>
+  <div class="slider-wrapper">
+    <div class="slider-track" id="continueTrack"></div>
+  </div>
+  <div class="slider-dots" id="continueDots"></div>
+</div>
+
+
+<!-- Live TV Section -->
+<div class="section hidden" id="liveTVSection">
+  <div class="section-header">
+    <h2 class="section-title" id="liveTVTitle">Live TV Channels</h2>
+    <button class="hero-btn secondary" id="liveUnlock18Btn" style="display:none;" onclick="handleLiveUnlockClick()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"></path></svg>
+      Unlock 18+ Channels
+    </button>
+  </div>
+  <div class="live-category-chips" id="liveCategoryChips"></div>
+  <div class="live-grid" id="liveGrid"></div>
+</div>
+
+<div class="section" id="mainGridSection">
+  <div class="section-header">
+    <h2 class="section-title" id="sectionTitle">Movies</h2>
+    <div class="pagination hidden" id="paginationControls">
+      <button class="page-btn" id="prevBtn">← Prev</button>
+      <span class="page-info" id="pageInfo">Page 1 of ?</span>
+      <button class="page-btn" id="nextBtn">Next →</button>
+    </div>
+  </div>
+  <div class="grid" id="grid">
+    <div class="skeleton"><div class="skeleton-img"></div><div class="skeleton-text"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>
+    <div class="skeleton"><div class="skeleton-img"></div><div class="skeleton-text"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>
+    <div class="skeleton"><div class="skeleton-img"></div><div class="skeleton-text"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>
+    <div class="skeleton"><div class="skeleton-img"></div><div class="skeleton-text"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>
+    <div class="skeleton"><div class="skeleton-img"></div><div class="skeleton-text"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>
+    <div class="skeleton"><div class="skeleton-img"></div><div class="skeleton-text"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>
+  </div>
+  <!-- Infinite scroll sentinel -->
+  <div id="infiniteScrollSentinel" style="height: 40px; margin: 20px 0; display: flex; align-items: center; justify-content: center; opacity: 0;">
+    <div class="player-spinner" style="width: 28px; height: 28px; border-width: 2px;"></div>
+  </div>
+  <div id="infiniteScrollEnd" style="text-align: center; padding: 30px 20px; color: var(--text-quaternary); font-size: 13px; display: none;">
+    You've reached the end
+  </div>
+</div>
+
+<div class="modal-overlay" id="detailsModal">
+  <button class="modal-close" id="detailsClose">×</button>
+  <div class="modal" id="detailsContent"></div>
+</div>
+
+<!-- ============================================================
+   NETFLIX-STYLE PROFESSIONAL VIDEO PLAYER v3.0
+   Replace your existing player overlay with this HTML
+   ============================================================ -->
+
+<!-- PROFESSIONAL VIDEO PLAYER -->
+<div class="player-overlay" id="playerModal">
+
+  <!-- Top Bar -->
+  <div class="player-top-bar" id="playerTopBar">
+    <button class="player-back-btn" id="playerBackBtn">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path>
+      </svg>
+      <span>Back</span>
+    </button>
+    <div class="player-top-info">
+      <div class="player-top-title" id="playerTopTitle">Title</div>
+      <div class="player-top-subtitle" id="playerTopSubtitle">Loading stream...</div>
+    </div>
+  </div>
+
+  <!-- Video Area -->
+  <div class="player-video-area" id="playerVideoArea">
+    <div class="player-video-wrapper" id="playerVideoWrapper">
+      <video id="playerVideo" crossorigin="anonymous" playsinline></video>
+    </div>
+
+    <!-- Center Play/Pause -->
+    <div class="player-center-overlay" id="playerCenterOverlay">
+      <button class="player-center-btn" id="playerCenterBtn">
+        <svg id="centerPlayIcon" viewBox="0 0 24 24" width="32" height="32" fill="white">
+          <path d="M8 5v14l11-7z"></path>
+        </svg>
+        <svg id="centerPauseIcon" viewBox="0 0 24 24" width="32" height="32" fill="white" style="display:none">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div class="player-loading-overlay" id="playerLoading">
+      <div class="player-spinner"></div>
+      <div class="player-loading-text" id="playerLoadingText">Loading stream...</div>
+    </div>
+
+    <!-- Buffer Ring -->
+    <div class="player-buffer-ring" id="playerBufferRing">
+      <div class="buffer-spinner"></div>
+    </div>
+
+    <!-- Error Overlay -->
+    <div class="player-error-overlay" id="playerErrorOverlay">
+      <div class="player-error-icon">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path>
+        </svg>
+      </div>
+      <div class="player-error-title">Playback Error</div>
+      <div class="player-error-msg" id="playerErrorMsg">Failed to load the video stream.</div>
+      <button class="player-error-retry" id="playerErrorRetry">Retry</button>
+    </div>
+
+    <!-- Next Episode Toast -->
+    <div class="player-next-toast" id="nextEpisodeToast">
+      <div class="next-toast-label">Up Next</div>
+      <div class="next-toast-title" id="nextEpisodeTitle">Episode 2</div>
+      <div class="next-toast-actions">
+        <button class="next-toast-btn primary" id="nextEpisodePlay">Play Now</button>
+        <button class="next-toast-btn secondary" id="nextEpisodeCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls Bar -->
+  <div class="player-controls-bar" id="playerControlsBar">
+
+    <!-- Progress Bar -->
+    <div class="player-progress-area" id="playerProgressArea">
+      <div class="player-progress-hover-time" id="playerHoverTime">00:00</div>
+      <div class="player-progress-track" id="playerProgressTrack">
+        <div class="player-progress-buffer" id="playerProgressBuffer"></div>
+        <div class="player-progress-fill" id="playerProgressFill"></div>
+        <div class="player-progress-thumb" id="playerProgressThumb"></div>
+      </div>
+    </div>
+
+    <!-- Controls Row -->
+    <div class="player-controls-row">
+
+      <!-- Play/Pause -->
+      <button class="player-control-btn play-btn" id="playerPlayBtn" title="Play/Pause (Space/K)">
+        <svg id="playIcon" viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+          <path d="M8 5v14l11-7z"></path>
+        </svg>
+        <svg id="pauseIcon" viewBox="0 0 24 24" width="28" height="28" fill="currentColor" style="display:none">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path>
+        </svg>
+      </button>
+
+      <!-- Skip Back 10s -->
+      <button class="player-control-btn" id="playerSkipBackBtn" title="Skip back 10s">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"></path>
+          <text x="12" y="15" text-anchor="middle" fill="currentColor" font-size="7" font-weight="bold">10</text>
+        </svg>
+      </button>
+
+      <!-- Skip Forward 10s -->
+      <button class="player-control-btn" id="playerSkipForwardBtn" title="Skip forward 10s">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"></path>
+          <text x="12" y="15" text-anchor="middle" fill="currentColor" font-size="7" font-weight="bold">10</text>
+        </svg>
+      </button>
+
+      <!-- Previous Episode -->
+      <button class="player-control-btn" id="playerPrevEpisodeBtn" title="Previous Episode (P)" disabled>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path>
+        </svg>
+      </button>
+
+      <!-- Next Episode -->
+      <button class="player-control-btn" id="playerNextEpisodeBtn" title="Next Episode (N)" disabled>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path>
+        </svg>
+      </button>
+
+      <!-- Volume -->
+      <div class="player-volume-wrap" id="playerVolumeWrap">
+        <button class="player-control-btn" id="playerVolumeBtn" title="Mute (M)">
+          <svg id="volHighIcon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path>
+          </svg>
+          <svg id="volLowIcon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="display:none">
+            <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"></path>
+          </svg>
+          <svg id="volMuteIcon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="display:none">
+            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"></path>
+          </svg>
+        </button>
+        <div class="player-volume-slider" id="playerVolumeSlider">
+          <div class="player-volume-fill" id="playerVolumeFill"></div>
+        </div>
+      </div>
+
+      <!-- Time Display -->
+      <span class="player-time-display" id="playerTimeDisplay">0:00 / 0:00</span>
+
+      <div class="player-spacer"></div>
+
+      <!-- Quality -->
+      <div style="position:relative;">
+        <button class="player-quality-btn" id="playerQualityBtn" onclick="toggleQualityDropdown(event)">
+          <span id="qualityLabel">Auto</span>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M7 10l5 5 5-5z"></path>
+          </svg>
+        </button>
+        <div class="player-quality-dropdown" id="playerQualityDropdown"></div>
+      </div>
+
+      <!-- Subtitles -->
+      <div style="position:relative;">
+        <button class="player-sub-btn" id="playerSubBtn" title="Subtitles (C)">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 12h4v2H4v-2zm6 0h4v2h-4v-2zm6 0h4v2h-4v-2z"></path>
+          </svg>
+        </button>
+        <div class="player-sub-dropdown" id="playerSubDropdown"></div>
+      </div>
+
+      <!-- Subtitle Position -->
+      <div style="position:relative;">
+        <button class="player-subpos-btn" id="playerSubPosBtn" title="Subtitle Position (V)">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"></path>
+          </svg>
+          <span class="pos-indicator"></span>
+        </button>
+        <div class="player-subpos-dropdown" id="playerSubPosDropdown"></div>
+      </div>
+
+      <!-- Speed -->
+      <div style="position:relative;">
+        <button class="player-speed-btn" id="playerSpeedBtn">
+          <span id="speedLabel">1x</span>
+        </button>
+        <div class="player-speed-dropdown" id="playerSpeedDropdown"></div>
+      </div>
+
+      <!-- Fullscreen -->
+      <button class="player-control-btn player-fs-btn" id="playerFsBtn" title="Fullscreen (F)">
+        <svg id="fsEnterIcon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"></path>
+        </svg>
+        <svg id="fsExitIcon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="display:none">
+          <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"></path>
+        </svg>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Landscape Rotation Overlay -->
+  <div class="landscape-overlay" id="landscapeOverlay">
+    <div class="landscape-overlay-content">
+      <svg viewBox="0 0 24 24" width="64" height="64" fill="currentColor">
+        <path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 18.29 0 12 0l-.66.03 3.81 3.81 1.33-1.32zM7.52 21.48c-3.27-1.55-5.61-4.72-5.97-8.48H.05C.56 19.16 5.71 24 12 24l.66-.03-3.81-3.81-1.33 1.32zM9.17.69L.69 9.17l14.14 14.14 8.49-8.49L9.17.69zm5.66 18.31L3.52 7.52l5.66-5.66L20.48 13.34l-5.65 5.66z"></path>
+      </svg>
+      <div class="landscape-overlay-title">Rotate Your Device</div>
+      <div class="landscape-overlay-desc">Please rotate to landscape for the best viewing experience</div>
+    </div>
+  </div>
+
+</div><!-- PIN Modal for 18+ Access -->
+<div class="pin-modal-overlay" id="pinModalOverlay">
+  <div class="pin-modal">
+    <div class="pin-modal-icon">
+      <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"></path></svg>
+    </div>
+    <div class="pin-modal-title">Age Verification Required</div>
+    <div class="pin-modal-desc">This section contains mature content. Please enter the 4-digit PIN to unlock 18+ channels.</div>
+    <div class="pin-inputs" id="pinInputs">
+      <input type="password" class="pin-input" maxlength="1" data-index="0" inputmode="numeric" pattern="[0-9]*">
+      <input type="password" class="pin-input" maxlength="1" data-index="1" inputmode="numeric" pattern="[0-9]*">
+      <input type="password" class="pin-input" maxlength="1" data-index="2" inputmode="numeric" pattern="[0-9]*">
+      <input type="password" class="pin-input" maxlength="1" data-index="3" inputmode="numeric" pattern="[0-9]*">
+    </div>
+    <div class="pin-numpad" id="pinNumpad">
+      <button class="pin-numpad-btn" data-num="1">1</button>
+      <button class="pin-numpad-btn" data-num="2">2</button>
+      <button class="pin-numpad-btn" data-num="3">3</button>
+      <button class="pin-numpad-btn" data-num="4">4</button>
+      <button class="pin-numpad-btn" data-num="5">5</button>
+      <button class="pin-numpad-btn" data-num="6">6</button>
+      <button class="pin-numpad-btn" data-num="7">7</button>
+      <button class="pin-numpad-btn" data-num="8">8</button>
+      <button class="pin-numpad-btn" data-num="9">9</button>
+      <button class="pin-numpad-btn wide" data-num="clear">Clear</button>
+      <button class="pin-numpad-btn" data-num="0">0</button>
+    </div>
+    <div class="pin-error-msg" id="pinErrorMsg">Incorrect PIN. Please try again.</div>
+    <div class="pin-actions">
+      <button class="pin-btn secondary" id="pinCancelBtn">Cancel</button>
+      <button class="pin-btn primary" id="pinSubmitBtn">Unlock</button>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+<!-- ===== NETFLIX-STYLE PROFILE / MY ACCOUNT ===== -->
+<div class="section hidden" id="profileSection">
+  <div class="netflix-profile">
+
+    <!-- Profile Hero Header -->
+    <div class="netflix-profile-hero">
+      <div class="netflix-profile-hero-bg"></div>
+      <div class="netflix-profile-hero-content">
+        <div class="netflix-avatar-large" id="netflixAvatar">?</div>
+        <div class="netflix-profile-hero-info">
+          <h1 class="netflix-profile-hero-name" id="netflixProfileName">Loading...</h1>
+          <p class="netflix-profile-hero-email" id="netflixProfileEmail">...</p>
+          <div class="netflix-profile-hero-meta">
+            <span class="netflix-tag" id="netflixPlanTag">Standard</span>
+            <span class="netflix-status-dot active" id="netflixStatusDot"></span>
+            <span id="netflixStatusText">Active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="netflix-container">
+
+      <!-- Membership & Billing Card -->
+      <div class="netflix-card">
+        <div class="netflix-card-header">
+          <div class="netflix-card-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"></path></svg>
+          </div>
+          <div>
+            <h2 class="netflix-card-title">Membership & Billing</h2>
+            <p class="netflix-card-subtitle">Manage your subscription details</p>
+          </div>
+        </div>
+
+        <div class="netflix-card-body">
+          <div class="netflix-info-grid">
+            <div class="netflix-info-item">
+              <span class="netflix-info-label">Email Address</span>
+              <span class="netflix-info-value" id="netflixEmail">-</span>
+            </div>
+            <div class="netflix-info-item">
+              <span class="netflix-info-label">Plan</span>
+              <span class="netflix-info-value">
+                <strong id="netflixPlan">-</strong>
+              </span>
+            </div>
+            <div class="netflix-info-item">
+              <span class="netflix-info-label">Status</span>
+              <span class="netflix-info-value" id="netflixStatus">-</span>
+            </div>
+            <div class="netflix-info-item">
+              <span class="netflix-info-label">Next Billing Date</span>
+              <span class="netflix-info-value" id="netflixExpiry">-</span>
+            </div>
+            <div class="netflix-info-item">
+              <span class="netflix-info-label">Price</span>
+              <span class="netflix-info-value" id="netflixPrice">-</span>
+            </div>
+          </div>
+
+          <!-- Subscription Progress -->
+          <div class="netflix-progress-section">
+            <div class="netflix-progress-header">
+              <span class="netflix-progress-label">Subscription Time Remaining</span>
+              <span class="netflix-progress-days" id="netflixProgressText">0 days left</span>
+            </div>
+            <div class="netflix-progress-bar">
+              <div class="netflix-progress-fill" id="netflixProgressFill" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="netflix-card-actions">
+            <button class="netflix-btn netflix-btn-primary" onclick="window.location.href='go:payment'">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
+              Change Plan
+            </button>
+            <button class="netflix-btn netflix-btn-secondary" onclick="window.location.href='go:payment'">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"></path></svg>
+              Renew Subscription
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Device Card -->
+      <div class="netflix-card">
+        <div class="netflix-card-header">
+          <div class="netflix-card-icon device">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"></path></svg>
+          </div>
+          <div>
+            <h2 class="netflix-card-title">This Device</h2>
+            <p class="netflix-card-subtitle">Your current active device</p>
+          </div>
+        </div>
+
+        <div class="netflix-card-body">
+          <div class="netflix-device-current">
+            <div class="netflix-device-current-icon">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"></path></svg>
+            </div>
+            <div class="netflix-device-current-info">
+              <div class="netflix-device-current-name">Current Device</div>
+              <div class="netflix-device-current-id" id="netflixCurrentDeviceId">...</div>
+              <div class="netflix-device-current-status">
+                <span class="netflix-status-pulse"></span>
+                Connected & Active
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Device Management Card -->
+      <div class="netflix-card">
+        <div class="netflix-card-header">
+          <div class="netflix-card-icon devices">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"></path></svg>
+          </div>
+          <div>
+            <h2 class="netflix-card-title">Device Management</h2>
+            <p class="netflix-card-subtitle">Manage connected devices <span class="netflix-device-count" id="netflixDeviceCount">0 / 0</span></p>
+          </div>
+        </div>
+
+        <div class="netflix-card-body">
+          <div class="netflix-device-list" id="netflixDeviceList">
+            <!-- Devices rendered here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="netflix-quick-actions">
+        <button class="netflix-quick-action" onclick="logoutUser()">
+          <div class="netflix-quick-action-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"></path></svg>
+          </div>
+          <span>Sign Out of All Devices</span>
+          <svg class="netflix-quick-action-arrow" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"></path></svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===== PAYWALL MODAL ===== -->
+<div class="paywall-overlay" id="paywallOverlay">
+  <div class="paywall-modal">
+    <div class="paywall-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg>
+    </div>
+    <div class="paywall-status" id="paywallStatus">Subscription Inactive</div>
+    <div class="paywall-title" id="paywallTitle">Unlock Premium Content</div>
+    <div class="paywall-desc" id="paywallDesc">Your subscription has expired or is inactive. Renew now to continue watching unlimited movies, TV shows, and live channels.</div>
+    <div class="paywall-features">
+      <div class="paywall-feature">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>
+        Unlimited Movies & TV Shows
+      </div>
+      <div class="paywall-feature">
+        <svg viewBox="0 0 24 24"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"></path></svg>
+        100+ Live TV Channels
+      </div>
+      <div class="paywall-feature">
+        <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"></path></svg>
+        HD & 4K Streaming
+      </div>
+    </div>
+    <a href="go:payment" class="paywall-btn" id="paywallSubscribeBtn">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"></path></svg>
+      Subscribe / Renew Now
+    </a>
+    <button class="paywall-btn paywall-btn-secondary" id="paywallDismissBtn">Continue Browsing</button>
+  </div>
+</div>
+
+<!-- ===== LOGIN OVERLAY ===== -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-container">
+    <div class="login-logo">Zed<span>Stream</span></div>
+    <div class="login-subtitle" id="loginSubtitle">Sign in to continue watching</div>
+    <div class="login-error" id="loginError">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg>
+      <span id="loginErrorText">Invalid email or password</span>
+    </div>
+    <form class="login-form" id="loginForm" onsubmit="return false;">
+      <div class="login-input-group">
+        <label>Email</label>
+        <input type="email" class="login-input" id="loginEmail" placeholder="your@email.com" required autocomplete="email">
+      </div>
+      <div class="login-input-group">
+        <label>Password</label>
+        <input type="password" class="login-input" id="loginPassword" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
+    </form>
+    <div class="login-divider">or</div>
+    <div class="login-toggle">
+      Don't have an account? <a id="registerToggle">Create one</a>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DEVICE DETECTION POPUP ===== -->
+<div class="device-popup-overlay" id="devicePopupOverlay">
+  <div class="device-popup">
+    <div class="pin-modal-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"></path></svg>
+    </div>
+    <div class="device-popup-title">Device Limit Reached</div>
+    <div class="device-popup-desc">
+      Your subscription allows <strong id="deviceLimitDisplay">1</strong> device(s).<br>
+      You are currently logged in on another device.
+    </div>
+    <div class="device-id-label">Current Device</div>
+    <div class="device-id-box" id="currentDeviceId">—</div>
+    <div class="device-id-label">Other Device</div>
+    <div class="device-id-box" id="otherDeviceId">—</div>
+    <div class="device-popup-desc" style="margin-top:16px;">
+      Remove the other device to continue on this one.
+    </div>
+    <div class="device-popup-actions">
+      <button class="pin-btn secondary" id="deviceCancelBtn">Cancel</button>
+      <button class="pin-btn primary" id="deviceRemoveBtn">Remove Other Device</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SUBSCRIPTION GATE OVERLAY ===== -->
+<div class="sub-gate-overlay" id="subGateOverlay">
+  <div class="sub-gate-modal">
+    <div class="sub-gate-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>
+    </div>
+    <div class="sub-gate-title" id="subGateTitle">Subscription Required</div>
+    <div class="sub-gate-desc" id="subGateDesc">
+      Your subscription has expired or is not valid.<br>
+      Please subscribe to continue watching Bob TV.
+    </div>
+    <a href="go:payment" class="sub-gate-btn" id="subGateBtn">Subscribe Now</a>
+    <button class="sub-gate-btn sub-gate-secondary" id="subGateDismissBtn">Dismiss</button>
+    <button class="sub-gate-btn sub-gate-secondary" id="subGateLogoutBtn">Log Out</button>
+  </div>
+</div>
+
+
+<!-- ===== AUTH PRELOADER ===== -->
+<div class="auth-preloader" id="authPreloader">
+  <div class="auth-preloader-content">
+    <div class="auth-preloader-spinner"></div>
+    <div class="auth-preloader-logo">Zed<span>Stream</span></div>
+    <div class="auth-preloader-text">Initializing your account...</div>
+    <div class="auth-preloader-sub">Please wait while we verify your subscription</div>
+  </div>
+</div>
+
+
+<!-- ===== COPY PROTECTION ===== -->
+
+
+  <script src="script.js"></script>
+</body>
+</html>
