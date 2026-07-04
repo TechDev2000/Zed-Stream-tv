@@ -1,4 +1,68 @@
 
+/* ============================================================
+   MKV AUDIO NOISE FIX — Container Format Filtering
+   MKV (Matroska) is NOT supported by HLS.js or HTML5 video.
+   HLS.js only supports MPEG-2 TS and fragmented MP4 (fMP4).
+   Forcing MKV through causes audio codec misalignment = noise.
+   ============================================================ */
+
+/** Detect container format from URL */
+function detectContainerFormat(url) {
+  if (!url) return 'unknown';
+  const lower = url.toLowerCase();
+  if (lower.endsWith('.mkv') || lower.includes('.mkv?') || lower.includes('/mkv') || lower.includes('matroska')) return 'mkv';
+  if (lower.endsWith('.m3u8') || lower.includes('.m3u8')) return 'hls';
+  if (lower.endsWith('.mp4') || lower.includes('.mp4')) return 'mp4';
+  if (lower.endsWith('.ts') || lower.includes('.ts')) return 'ts';
+  if (lower.endsWith('.m4s') || lower.includes('.m4s')) return 'fmp4';
+  if (lower.endsWith('.webm') || lower.includes('.webm')) return 'webm';
+  return 'unknown';
+}
+
+/** Check if browser claims native MKV support (rare — mostly Firefox) */
+function canPlayMKVNatively() {
+  const v = document.createElement('video');
+  return v.canPlayType('video/x-matroska') !== '' || v.canPlayType('video/webm') !== '';
+}
+
+/** Filter out MKV sources from an array */
+function filterMKVSources(sources) {
+  if (!sources || !Array.isArray(sources)) return [];
+  const filtered = [];
+  const mkvSources = [];
+  sources.forEach(src => {
+    const container = detectContainerFormat(src.url);
+    if (container === 'mkv') {
+      mkvSources.push(src);
+    } else {
+      filtered.push(src);
+    }
+  });
+  if (mkvSources.length > 0) {
+    console.warn('[MKV Fix] Excluded', mkvSources.length, 'MKV source(s) — container not supported by HLS.js/HTML5');
+  }
+  return filtered;
+}
+
+/** Check if a single source is MKV */
+function isMKVSource(url, type) {
+  if (!url) return false;
+  const lowerUrl = url.toLowerCase();
+  return lowerUrl.endsWith('.mkv') || lowerUrl.includes('.mkv?') || lowerUrl.includes('/mkv') || type === 'mkv' || lowerUrl.includes('matroska');
+}
+
+/** Show MKV unsupported error in player */
+function showMKVError() {
+  playerLoading.classList.add('hidden-loading');
+  playerBufferRing.classList.remove('visible');
+  playerErrorMsg.textContent = 'MKV format is not supported by your browser. This title may have alternative sources — try again or choose another title.';
+  playerErrorOverlay.classList.add('active');
+  playerControlsBar.classList.add('hidden-bar');
+  playerTopBar.classList.add('hidden-bar');
+}
+
+/* ===== END MKV FIX UTILITIES ===== */
+
 const API = 'https://api.bobtvafrica.site';
 const PER_PAGE = 18;
 const STORAGE_KEYS = {
@@ -18,7 +82,7 @@ let tvDetailData = null;
 let popularData = [];
 let currentView = 'browse';
 
-// ── HERO CAROUSEL STATE ──
+//  HERO CAROUSEL STATE 
 let heroCarouselData = [];
 let heroCurrentIndex = 0;
 let heroAutoPlayInterval = null;
@@ -28,7 +92,7 @@ let heroProgressStartTime = 0;
 const HERO_AUTOPLAY_DELAY = 8000; // 8 seconds per slide (Netflix style)
 const HERO_KB_VARIANTS = ['zoom-out', 'pan-right', 'pan-left', 'zoom-out', 'pan-right'];
 
-// ── INFINITE SCROLL STATE ──
+//  INFINITE SCROLL STATE 
 let isLoadingMore = false;
 let hasMorePages = true;
 let infiniteScrollObserver = null;
@@ -63,7 +127,7 @@ const SUBTITLE_POSITIONS = [
 
 let progressSaveInterval = null;
 
-// ── WATCHLIST & CONTINUE WATCHING SYSTEM ──
+//  WATCHLIST & CONTINUE WATCHING SYSTEM 
 
 function getWatchlist() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCHLIST) || '[]'); }
@@ -225,7 +289,7 @@ function refreshGridWatchlistButtons() {
   });
 }
 
-// ── TOAST SYSTEM ──
+//  TOAST SYSTEM 
 function showToast(title, message, type = 'info') {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
@@ -260,7 +324,7 @@ function showToast(title, message, type = 'info') {
   }, 4000);
 }
 
-// ── DOM REFS ──
+//  DOM REFS 
 const grid = document.getElementById('grid');
 const heroTitle = document.getElementById('heroTitle');
 const heroMeta = document.getElementById('heroMeta');
@@ -292,7 +356,7 @@ const sidebarClose = document.getElementById('sidebarClose');
 const paginationControls = document.getElementById('paginationControls');
 const heroSection = document.getElementById('heroCarousel');
 
-/* ── PLAYER DOM REFS ── */
+/*  PLAYER DOM REFS  */
 const playerTopBar = document.getElementById('playerTopBar');
 const playerBackBtn = document.getElementById('playerBackBtn');
 const playerTopTitle = document.getElementById('playerTopTitle');
@@ -351,7 +415,7 @@ const nextEpisodeTitle = document.getElementById('nextEpisodeTitle');
 const nextEpisodePlay = document.getElementById('nextEpisodePlay');
 const nextEpisodeCancel = document.getElementById('nextEpisodeCancel');
 
-/* ── SIDEBAR ── */
+/*  SIDEBAR  */
 function openSidebar() {
   sidebar.classList.add('open');
   sidebarOverlay.classList.add('open');
@@ -394,7 +458,7 @@ function switchView(view) {
     isLoadingMore = false;
     hasMorePages = true;
     allLoadedData = [];
-    switchTab(activeTab);
+    switchTab('browse');
     setupInfiniteScroll();
     return;
   }
@@ -499,6 +563,24 @@ function switchView(view) {
     return;
   }
 
+  // New catalog section views
+  const catalogViews = ['trending', 'latest', 'popular', 'africa', 'netflix', 'hbo', 'prime', 'disney', 'newly_added', 'classic'];
+  if (catalogViews.includes(view)) {
+    if (!requireLogin()) return;
+    heroSection.classList.remove('hidden');
+    paginationControls.classList.add('hidden');
+    tabGroup.classList.remove('hidden');
+    searchInput.parentElement.classList.remove('hidden');
+    document.getElementById('liveTVSection').classList.add('hidden');
+    document.getElementById('mainGridSection').classList.remove('hidden');
+    isLoadingMore = false;
+    hasMorePages = true;
+    allLoadedData = [];
+    switchTab(view);
+    setupInfiniteScroll();
+    return;
+  }
+
   if (view === 'profile') {
     heroSection.classList.add('hidden');
     paginationControls.classList.add('hidden');
@@ -539,7 +621,7 @@ function renderWatchlistView() {
     const genres = (item.genres || []).slice(0, 2).map(g => `<span>${g}</span>`).join('');
     return `<div class="card" data-watchidx="${i}">
       <div class="card-poster"><img src="${item.poster_url}" alt="${item.title}" loading="lazy" onerror="this.style.display='none'">
-        <div class="card-badge">★ ${item.vote_average}</div>
+        <div class="card-badge"> ${item.vote_average}</div>
         <div class="card-overlay"><div class="tags">${genres}</div></div>
         <button class="card-watchlist-btn active" data-watchidx="${i}" title="Remove from Watchlist">
           <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
@@ -639,7 +721,7 @@ function renderContinueView() {
 
     return `<div class="card" data-contidx="${i}">
       <div class="card-poster"><img src="${item.poster_url}" alt="${item.title}" loading="lazy" onerror="this.style.display='none'">
-        <div class="card-badge">★ ${item.vote_average}</div>
+        <div class="card-badge"> ${item.vote_average}</div>
         <div class="card-overlay">
           <div class="tags"><span>${progressText}</span></div>
         </div>
@@ -746,7 +828,7 @@ function renderContinueWatchingSlider() {
     return `<div class="slider-card" data-contidx="${i}">
       <div class="slider-card-poster">
         <img src="${item.poster_url}" alt="${item.title}" loading="lazy" onerror="this.style.display='none'">
-        <div class="slider-card-rating">★ ${item.vote_average}</div>
+        <div class="slider-card-rating"> ${item.vote_average}</div>
         <div class="slider-card-progress"><div class="slider-card-progress-fill" style="width:${progressPct}%"></div></div>
       </div>
       <div class="slider-card-info">
@@ -932,7 +1014,7 @@ function renderProfileView() {
 }
 
 
-/* ── API HELPERS ── */
+/*  API HELPERS  */
 async function apiFetch(url) {
   try {
     const r = await fetch(url);
@@ -953,6 +1035,16 @@ async function fetchTV(page) { return apiFetch(`${API}/api/content/tv-shows?page
 async function fetchOnAir() { return apiFetch(`${API}/api/content/tv-shows/on-the-air`); }
 async function fetchKidsMovies(page) { return apiFetch(`${API}/api/content/kids/movies?page=${page}&per_page=${PER_PAGE}`); }
 async function fetchKidsTV(page) { return apiFetch(`${API}/api/content/kids/tv-shows?page=${page}&per_page=${PER_PAGE}`); }
+async function fetchTrendingMovies() { return apiFetch(`${API}/api/content/movies/trending`); }
+async function fetchLatestMovies(page) { return apiFetch(`${API}/api/content/movies?page=${page}&per_page=${PER_PAGE}&sort_by=release_date`); }
+async function fetchPopularCatalogue(page) { return apiFetch(`${API}/api/content/movies?page=${page}&per_page=60`); }
+async function fetchAfricaHomegrown(page) { return apiFetch(`${API}/api/content/movies?page=${page}&per_page=${PER_PAGE}&africa_homegrown=1`); }
+async function fetchNetflixMovies(page) { return apiFetch(`${API}/api/content/movies?page=${page}&per_page=${PER_PAGE}&streamer=netflix`); }
+async function fetchHBOMovies(page) { return apiFetch(`${API}/api/content/movies?page=${page}&per_page=${PER_PAGE}&streamer=hbo`); }
+async function fetchPrimeVideoMovies(page) { return apiFetch(`${API}/api/content/movies?page=${page}&per_page=${PER_PAGE}&streamer=prime_video`); }
+async function fetchDisneyPlusMovies(page) { return apiFetch(`${API}/api/content/movies?page=${page}&per_page=${PER_PAGE}&streamer=disney_plus`); }
+async function fetchNewlyAdded(page) { return apiFetch(`${API}/api/content/movies?page=${page}&per_page=${PER_PAGE}&sort_by=created_at_desc`); }
+async function fetchClassicMovies(page) { return apiFetch(`${API}/api/content/movies?page=${page}&per_page=${PER_PAGE}&classic=1`); }
 async function searchMovies(q, page) { return apiFetch(`${API}/api/content/movies/search?page=${page}&per_page=${PER_PAGE}&q=${encodeURIComponent(q)}`); }
 async function searchTV(q, page) { return apiFetch(`${API}/api/content/tv-shows/search?page=${page}&per_page=${PER_PAGE}&q=${encodeURIComponent(q)}`); }
 async function searchKidsMovies(q, page) { return apiFetch(`${API}/api/content/kids/movies/search?page=${page}&per_page=${PER_PAGE}&q=${encodeURIComponent(q)}`); }
@@ -970,7 +1062,7 @@ async function getTVEpisodeStream(tmdbId, season, episode) {
   return apiFetch(`${API}/v1/tv/${tmdbId}/seasons/${season}/episodes/${episode}`);
 }
 
-/* ── SUBTITLE FETCHING ── */
+/*  SUBTITLE FETCHING  */
 const SUBTITLE_API = 'https://sub.wyzie.io';
 // Get your free API key at: https://store.wyzie.io/redeem
 // Free tier: 1,000 requests/day
@@ -1108,6 +1200,7 @@ function createSubtitleBlobUrl(content, format) {
 }
 
 function isTVTab() { return activeTab === 'tv' || activeTab === 'kids_tv'; }
+function isBrowseTab() { return activeTab === 'browse'; }
 function yearStr(item) { return (item.release_date || item.first_air_date || '').split('-')[0] || 'N/A'; }
 
 function showSkeletons() {
@@ -1116,7 +1209,7 @@ function showSkeletons() {
     grid.innerHTML += `<div class="skeleton"><div class="skeleton-img"></div><div class="skeleton-text"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>`;
 }
 
-/* ── HERO CAROUSEL FUNCTIONS ── */
+/*  HERO CAROUSEL FUNCTIONS  */
 
 function initHeroCarousel() {
     const carousel = document.getElementById('heroCarousel');
@@ -1244,7 +1337,7 @@ function updateHeroContent(index) {
         <span>${year}</span>
         ${eps ? `<span class="meta-separator"></span><span>${eps}</span>` : ''}
         <span class="meta-separator"></span>
-        <span class="hero-rating">★ ${item.vote_average}</span>
+        <span class="hero-rating"> ${item.vote_average}</span>
         ${genres ? `<span class="meta-separator"></span><span>${genres}</span>` : ''}
     `;
 
@@ -1560,7 +1653,7 @@ function renderGrid(data, append = false) {
     const inWatchlist = isInWatchlist(item);
     return `<div class="card" data-idx="${globalIdx}" style="animation: fadeInUp 0.5s var(--ease-out) ${(i * 0.03).toFixed(2)}s both;">
       <div class="card-poster"><img src="${item.poster_url}" alt="${item.title || item.name}" loading="lazy" onerror="this.style.display='none'">
-        <div class="card-badge">★ ${item.vote_average}</div>
+        <div class="card-badge"> ${item.vote_average}</div>
         <div class="card-overlay"><div class="tags">${genres}</div></div>
         <button class="card-watchlist-btn ${inWatchlist ? 'active' : ''}" data-idx="${globalIdx}" title="${inWatchlist ? 'In Watchlist' : 'Add to Watchlist'}">
           <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
@@ -1615,10 +1708,30 @@ async function load(page = 1, append = false) {
     let data;
     if (activeTab === 'kids_movies') data = await searchKidsMovies(q, page);
     else if (activeTab === 'kids_tv') data = await searchKidsTV(q, page);
+    else if (activeTab === 'browse') {
+      // Search both movies and TV when in browse mode
+      const [moviesRes, tvRes] = await Promise.all([
+        searchMovies(q, page),
+        searchTV(q, page)
+      ]);
+      let merged = [];
+      let pagination = { current_page: 1, last_page: 1 };
+      if (moviesRes && !moviesRes.error && moviesRes.data) {
+        merged = merged.concat(moviesRes.data);
+        if (moviesRes.pagination) pagination.last_page = Math.max(pagination.last_page, moviesRes.pagination.last_page);
+      }
+      if (tvRes && !tvRes.error && tvRes.data) {
+        merged = merged.concat(tvRes.data);
+        if (tvRes.pagination) pagination.last_page = Math.max(pagination.last_page, tvRes.pagination.last_page);
+      }
+      // Sort by rating (highest first)
+      merged.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+      data = { data: merged, pagination: pagination };
+    }
     else data = isTVTab() ? await searchTV(q, page) : await searchMovies(q, page);
     renderGrid(data, append);
     if (!append) {
-      
+
       continueWatchingSection.classList.add('hidden');
     }
     isLoadingMore = false;
@@ -1649,6 +1762,166 @@ async function load(page = 1, append = false) {
     return;
   }
 
+  // New catalog sections
+  if (activeTab === 'trending') {
+    sectionTitle.textContent = ' Trending Movies';
+    const data = await fetchTrendingMovies();
+    if (data && !data.error && data.data) {
+      const wrapped = {
+        data: data.data,
+        pagination: { current_page: 1, last_page: 1 }
+      };
+      renderGrid(wrapped, append);
+    } else {
+      renderGrid(data, append);
+    }
+    if (!append) {
+      continueWatchingSection.classList.add('hidden');
+      if (infiniteScrollObserver) {
+        infiniteScrollObserver.disconnect();
+        infiniteScrollObserver = null;
+      }
+      const sentinel = document.getElementById('infiniteScrollSentinel');
+      if (sentinel) sentinel.style.opacity = '0';
+    }
+    isLoadingMore = false;
+    return;
+  }
+
+  if (activeTab === 'latest') {
+    sectionTitle.textContent = ' Latest Movies';
+    const data = await fetchLatestMovies(page);
+    renderGrid(data, append);
+    if (!append) continueWatchingSection.classList.add('hidden');
+    isLoadingMore = false;
+    return;
+  }
+
+  if (activeTab === 'popular') {
+    sectionTitle.textContent = ' Popular Catalogue';
+    const data = await fetchPopularCatalogue(page);
+    renderGrid(data, append);
+    if (!append) continueWatchingSection.classList.add('hidden');
+    isLoadingMore = false;
+    return;
+  }
+
+  if (activeTab === 'africa') {
+    sectionTitle.textContent = ' Africa Home Grown';
+    const data = await fetchAfricaHomegrown(page);
+    renderGrid(data, append);
+    if (!append) continueWatchingSection.classList.add('hidden');
+    isLoadingMore = false;
+    return;
+  }
+
+  if (activeTab === 'netflix') {
+    sectionTitle.textContent = ' Netflix Movies';
+    const data = await fetchNetflixMovies(page);
+    renderGrid(data, append);
+    if (!append) continueWatchingSection.classList.add('hidden');
+    isLoadingMore = false;
+    return;
+  }
+
+  if (activeTab === 'hbo') {
+    sectionTitle.textContent = ' HBO Movies';
+    const data = await fetchHBOMovies(page);
+    renderGrid(data, append);
+    if (!append) continueWatchingSection.classList.add('hidden');
+    isLoadingMore = false;
+    return;
+  }
+
+  if (activeTab === 'prime') {
+    sectionTitle.textContent = ' Prime Video Movies';
+    const data = await fetchPrimeVideoMovies(page);
+    renderGrid(data, append);
+    if (!append) continueWatchingSection.classList.add('hidden');
+    isLoadingMore = false;
+    return;
+  }
+
+  if (activeTab === 'disney') {
+    sectionTitle.textContent = ' Disney+ Movies';
+    const data = await fetchDisneyPlusMovies(page);
+    renderGrid(data, append);
+    if (!append) continueWatchingSection.classList.add('hidden');
+    isLoadingMore = false;
+    return;
+  }
+
+  if (activeTab === 'newly_added') {
+    sectionTitle.textContent = ' Newly Added';
+    const data = await fetchNewlyAdded(page);
+    renderGrid(data, append);
+    if (!append) continueWatchingSection.classList.add('hidden');
+    isLoadingMore = false;
+    return;
+  }
+
+  if (activeTab === 'classic') {
+    sectionTitle.textContent = ' Classic Movies';
+    const data = await fetchClassicMovies(page);
+    renderGrid(data, append);
+    if (!append) continueWatchingSection.classList.add('hidden');
+    isLoadingMore = false;
+    return;
+  }
+
+  // BROWSE: Fetch both movies and TV, merge and shuffle
+  if (activeTab === 'browse') {
+    sectionTitle.textContent = 'Browse All';
+
+    // Fetch both in parallel
+    const [moviesData, tvData] = await Promise.all([
+      fetchMovies(page),
+      fetchTV(page)
+    ]);
+
+    // Merge data
+    let merged = [];
+    let pagination = { current_page: 1, last_page: 1 };
+
+    if (moviesData && !moviesData.error && moviesData.data) {
+      merged = merged.concat(moviesData.data);
+      if (moviesData.pagination) {
+        pagination.current_page = moviesData.pagination.current_page;
+        pagination.last_page = Math.max(pagination.last_page, moviesData.pagination.last_page);
+      }
+    }
+
+    if (tvData && !tvData.error && tvData.data) {
+      merged = merged.concat(tvData.data);
+      if (tvData.pagination) {
+        pagination.current_page = Math.max(pagination.current_page, tvData.pagination.current_page);
+        pagination.last_page = Math.max(pagination.last_page, tvData.pagination.last_page);
+      }
+    }
+
+    // Shuffle merged results for variety
+    for (let i = merged.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [merged[i], merged[j]] = [merged[j], merged[i]];
+    }
+
+    const unifiedResult = {
+      data: merged,
+      pagination: pagination
+    };
+
+    renderGrid(unifiedResult, append);
+
+    if (!append) {
+      // Show continue watching on browse
+      renderContinueWatchingSlider();
+      initAutoSlider('continueTrack', 'continueDots');
+    }
+
+    isLoadingMore = false;
+    return;
+  }
+
   sectionTitle.textContent = activeTab === 'movies' ? 'Movies' : 'TV Shows';
   const data = activeTab === 'movies' ? await fetchMovies(page) : await fetchTV(page);
   renderGrid(data, append);
@@ -1669,9 +1942,10 @@ function switchTab(type) {
   activeTab = type;
   searchQuery = '';
   searchInput.value = '';
-  if (type === 'tv' || type === 'onair' || type === 'kids_tv') searchInput.placeholder = 'Search TV shows...';
-  else if (type === 'kids_movies') searchInput.placeholder = 'Search kids movies...';
-  else searchInput.placeholder = 'Search movies...';
+  if (type === 'tv' || type === 'onair' || type === 'kids_tv') searchInput.placeholder = 'Search...';
+  else if (type === 'kids_movies') searchInput.placeholder = 'Search...';
+  else if (type === 'browse') searchInput.placeholder = 'Search...';
+  else searchInput.placeholder = 'Search...';
   tabGroup.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   tabGroup.querySelector(`.tab-btn[data-type="${type}"]`)?.classList.add('active');
   document.getElementById('liveTVSection').classList.add('hidden');
@@ -1679,8 +1953,19 @@ function switchTab(type) {
 
   // Update sidebar nav
   document.querySelectorAll('.sidebar-nav-item').forEach(i => i.classList.remove('active'));
-  if (type === 'movies') document.getElementById('navMovies')?.classList.add('active');
+  if (type === 'browse') document.getElementById('navBrowse')?.classList.add('active');
+  else if (type === 'movies') document.getElementById('navMovies')?.classList.add('active');
   else if (type === 'tv') document.getElementById('navTV')?.classList.add('active');
+  else if (type === 'trending') document.getElementById('navTrending')?.classList.add('active');
+  else if (type === 'latest') document.getElementById('navLatest')?.classList.add('active');
+  else if (type === 'popular') document.getElementById('navPopular')?.classList.add('active');
+  else if (type === 'africa') document.getElementById('navAfrica')?.classList.add('active');
+  else if (type === 'netflix') document.getElementById('navNetflix')?.classList.add('active');
+  else if (type === 'hbo') document.getElementById('navHBO')?.classList.add('active');
+  else if (type === 'prime') document.getElementById('navPrime')?.classList.add('active');
+  else if (type === 'disney') document.getElementById('navDisney')?.classList.add('active');
+  else if (type === 'newly_added') document.getElementById('navNewlyAdded')?.classList.add('active');
+  else if (type === 'classic') document.getElementById('navClassic')?.classList.add('active');
   else if (type === 'kids_movies' || type === 'kids_tv') document.getElementById('navKids')?.classList.add('active');
   else document.getElementById('navBrowse')?.classList.add('active');
 
@@ -1694,7 +1979,7 @@ function switchTab(type) {
   initAllAutoSliders();
 }
 
-/* ── DETAILS ── */
+/*  DETAILS  */
 async function openDetails(item) {
   if (!gateContentAccess()) return;
   if (!item) return;
@@ -1735,7 +2020,7 @@ async function openDetails(item) {
           <div class="modal-type">${typeLabel}</div>
           <h1 class="modal-title">${title}</h1>
           <div class="modal-meta">
-            <span class="rating">★ ${item.vote_average || 'N/A'}</span>
+            <span class="rating"> ${item.vote_average || 'N/A'}</span>
             <span class="dot"></span><span>${yearRange}</span>
             ${runtime ? `<span class="dot"></span><span>${runtime}</span>` : ''}
             <span class="dot"></span><span class="status-badge">${status}</span>
@@ -1867,7 +2152,7 @@ function wireEpisodeCards() {
   });
 }
 
-/* ── PLAYER CONTROLS ── */
+/*  PLAYER CONTROLS  */
 
 function updateEpisodeNavButtons() {
   if (playerPrevEpisodeBtn) {
@@ -2738,7 +3023,7 @@ function closeSpeedDropdown() {
    SMART PLAYBACK ENGINE v2.0 — Reliable Automatic Source-Switching
    ============================================================ */
 
-// ── SOURCE HEALTH TRACKING ──
+//  SOURCE HEALTH TRACKING 
 const SOURCE_SCORE_KEY = 'zedstream_source_scores';
 const MAX_SCORE_HISTORY = 20;
 const SCORE_DECAY_MS = 7 * 24 * 60 * 60 * 1000;
@@ -2798,7 +3083,13 @@ function calculateSourceScore(url, quality) {
 
 function rankSources(sources) {
   if (!sources || sources.length === 0) return [];
-  return sources.map(src => ({
+  // MKV FIX: Filter out MKV sources — HLS.js/HTML5 do not support Matroska container
+  const filtered = filterMKVSources(sources);
+  if (filtered.length === 0 && sources.length > 0) {
+    console.warn('[MKV Fix] All sources were MKV — no compatible sources available');
+    return [];
+  }
+  return filtered.map(src => ({
     ...src,
     _score: calculateSourceScore(src.url, src.quality),
     _qualityRank: qualityToRank(src.quality)
@@ -2886,6 +3177,14 @@ async function loadEmbeddedSubtitles(subtitles) {
 }
 
 function buildQualityMenu(sources) {
+  // MKV FIX: Filter out MKV sources from quality menu
+  if (sources && sources.length > 0) {
+    const beforeFilter = sources.length;
+    sources = sources.filter(src => !isMKVSource(src.url, src.type));
+    if (sources.length < beforeFilter) {
+      console.log('[MKV Fix] Excluded', beforeFilter - sources.length, 'MKV source(s) from quality menu');
+    }
+  }
   currentSources = sources || [];
   playerQualityDropdown.innerHTML = '';
 
@@ -2894,7 +3193,7 @@ function buildQualityMenu(sources) {
     return;
   }
 
-  // ── HLS LEVELS (adaptive bitrate) ──
+  //  HLS LEVELS (adaptive bitrate) 
   if (hlsInstance && hlsInstance.levels && hlsInstance.levels.length > 1) {
     const hlsHeader = document.createElement('div');
     hlsHeader.className = 'quality-group-label';
@@ -2937,7 +3236,7 @@ function buildQualityMenu(sources) {
       playerQualityDropdown.appendChild(levelOpt);
     });
   } 
-  // ── NON-HLS: Show quality formats from sources ──
+  //  NON-HLS: Show quality formats from sources 
   else {
     // Group sources by quality label
     const qualityMap = new Map();
@@ -3329,7 +3628,7 @@ document.addEventListener('click', (e) => {
   }
 });
 
-/* ── PLAYBACK ENGINE ── */
+/*  PLAYBACK ENGINE  */
 
 /* Load video source for quality switching (preserves HLS instance) */
 function loadVideoSourceForQuality(url, type, subtitles, resumeTime, wasPlaying) {
@@ -3363,6 +3662,17 @@ function loadVideoSourceForQuality(url, type, subtitles, resumeTime, wasPlaying)
 }
 
 function loadVideoSource(url, type, subtitles, isFallback) {
+  // MKV FIX: Block MKV playback — causes audio noise/distortion due to container mismatch
+  if (isMKVSource(url, type)) {
+    console.error('[MKV Fix] Blocking MKV playback:', url.substring(0, 80) + '...');
+    showMKVError();
+    // Trigger fallback to next source if available
+    if (!isFallback && fallbackState.sources.length > 0 && fallbackState.currentSourceIndex < fallbackState.sources.length - 1) {
+      console.log('[MKV Fix] Attempting fallback to next source...');
+      setTimeout(autoSwitchSource, 100);
+    }
+    return;
+  }
   destroyHls();
   const oldVideo = playerVideo;
   const newVideo = oldVideo.cloneNode(false);
@@ -3514,7 +3824,7 @@ function destroyHls() {
   }
 }
 
-/* ── PLAY MOVIE / EPISODE ── */
+/*  PLAY MOVIE / EPISODE  */
 
 async function playMovie(item) {
   if (!gateContentAccess()) return;
@@ -3544,6 +3854,19 @@ async function playMovie(item) {
   currentPlayingItem = { item: item, type: 'movie', season: null, episode: null, episodeName: null };
   const data = await getMovieStreams(item.tmdb_id);
   if (data && !data.error && data.sources && data.sources.length > 0) {
+    // MKV FIX: Pre-filter sources from API response
+    const originalCount = data.sources.length;
+    data.sources = filterMKVSources(data.sources);
+    if (data.sources.length === 0) {
+      playerTopSubtitle.textContent = 'No compatible sources (MKV not supported)';
+      playerLoading.classList.add('hidden-loading');
+      playerErrorMsg.textContent = 'All sources for this title are in MKV format, which is not supported by your browser. Please try a different title.';
+      playerErrorOverlay.classList.add('active');
+      return;
+    }
+    if (data.sources.length < originalCount) {
+      console.log('[MKV Fix] Filtered out', originalCount - data.sources.length, 'MKV source(s) from API response');
+    }
     currentSources = data.sources; currentSubtitles = data.subtitles || [];
     resetFallbackState(); fallbackState.sources = rankSources(data.sources);
     const best = fallbackState.sources[0]; currentQuality = best;
@@ -3594,6 +3917,19 @@ async function playEpisode(tmdbId, season, episode, showName, epName) {
   try {
     const data = await getTVEpisodeStream(tmdbId, season, episode);
     if (data && !data.error && data.sources && data.sources.length > 0) {
+      // MKV FIX: Pre-filter sources from API response
+      const originalCount = data.sources.length;
+      data.sources = filterMKVSources(data.sources);
+      if (data.sources.length === 0) {
+        playerTopSubtitle.textContent = 'No compatible sources (MKV not supported)';
+        playerLoading.classList.add('hidden-loading');
+        playerErrorMsg.textContent = 'This episode is only available in MKV format, which is not supported. Please try another episode.';
+        playerErrorOverlay.classList.add('active');
+        return;
+      }
+      if (data.sources.length < originalCount) {
+        console.log('[MKV Fix] Filtered out', originalCount - data.sources.length, 'MKV source(s) from API response');
+      }
       currentSources = data.sources; currentSubtitles = data.subtitles || [];
       resetFallbackState(); fallbackState.sources = rankSources(data.sources);
       const best = fallbackState.sources[0]; currentQuality = best;
@@ -3798,7 +4134,7 @@ function closePlayer() {
   currentPlayingItem = null;
 }
 
-/* ── EVENTS ── */
+/*  EVENTS  */
 tabGroup.addEventListener('click', (e) => {
   const btn = e.target.closest('.tab-btn');
   if (!btn) return;
@@ -3840,7 +4176,7 @@ tabGroup.addEventListener('click', (e) => {
   setupInfiniteScroll();
 });
 
-// ── INFINITE SCROLL OBSERVER ──
+//  INFINITE SCROLL OBSERVER 
 function setupInfiniteScroll() {
   const sentinel = document.getElementById('infiniteScrollSentinel');
   if (!sentinel) return;
@@ -3880,7 +4216,7 @@ nextBtn.addEventListener('click', () => {
   }
 });
 
-/* ── UNIFIED DEBOUNCED SEARCH ── */
+/*  UNIFIED DEBOUNCED SEARCH  */
 let searchDebounceTimer = null;
 let searchAbortController = null;
 const SEARCH_DEBOUNCE_MS = 350;
@@ -4062,7 +4398,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 
-// ── LIVE TV SYSTEM ──
+//  LIVE TV SYSTEM 
 const LIVE_TV_API = 'https://pastefy.app/sh92Ia4P/raw';
 let liveChannels = [];
 let liveCategories = [];
@@ -4380,7 +4716,7 @@ function requirePinForMature(callback) {
   showPinModal(callback);
 }
 
-// ── MATURE CONTENT RENDERING ──
+//  MATURE CONTENT RENDERING 
 
 
 function isMatureChannel(channel) {
@@ -4463,12 +4799,13 @@ async function playLiveChannel(channel) {
   window.location.href = link;
 }
 
-// ── CLOSE PLAYER CLEANUP FOR LIVE TV ──
+//  CLOSE PLAYER CLEANUP FOR LIVE TV 
 // Live TV channels navigate directly via go: links, no player cleanup needed
 
 // Initialize
 updateWatchlistBadge();
 updateContinueBadge();
+activeTab = 'browse';
 load(1, false);
 setupInfiniteScroll();
 initAllAutoSliders();
@@ -5981,3 +6318,106 @@ window.getCurrentUser = () => currentUser;
 window.getCurrentSubscription = () => currentSubscription;
 window.getSubscriptionPasteId = getSubscriptionPasteId;
 window.setManualPasteId = setManualPasteId;
+
+
+
+
+
+
+/* ===== SECTION BREAK ===== */
+
+
+(function() {
+  'use strict';
+
+  // Disable right-click context menu
+  document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    return false;
+  }, true);
+
+  // Disable text selection
+  document.addEventListener('selectstart', function(e) {
+    e.preventDefault();
+    return false;
+  }, true);
+
+  // Disable drag and drop
+  document.addEventListener('dragstart', function(e) {
+    e.preventDefault();
+    return false;
+  }, true);
+
+  // Disable copy, cut, paste keyboard shortcuts
+  document.addEventListener('keydown', function(e) {
+    // Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+A, Ctrl+S, Ctrl+P, Ctrl+U (view source)
+    if (e.ctrlKey || e.metaKey) {
+      const blockedKeys = ['c', 'x', 'v', 'a', 's', 'p', 'u'];
+      if (blockedKeys.includes(e.key.toLowerCase())) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    }
+    // F12 (DevTools), Ctrl+Shift+I/J/C
+    if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(e.key.toLowerCase()))) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  }, true);
+
+  // Disable copy event
+  document.addEventListener('copy', function(e) {
+    e.preventDefault();
+    return false;
+  }, true);
+
+  // Disable cut event
+  document.addEventListener('cut', function(e) {
+    e.preventDefault();
+    return false;
+  }, true);
+
+  // Disable paste event (except on input fields for usability)
+  document.addEventListener('paste', function(e) {
+    const target = e.target;
+    if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
+      e.preventDefault();
+      return false;
+    }
+  }, true);
+
+  // Prevent developer tools detection bypass attempts
+  let devtoolsOpen = false;
+  const threshold = 160;
+
+  setInterval(function() {
+    const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+    const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+    if (widthThreshold || heightThreshold) {
+      if (!devtoolsOpen) {
+        devtoolsOpen = true;
+        console.clear();
+        console.log('%cStop!', 'color: red; font-size: 50px; font-weight: bold;');
+        console.log('%cThis is a browser feature intended for developers.', 'font-size: 16px;');
+      }
+    } else {
+      devtoolsOpen = false;
+    }
+  }, 500);
+
+  // Disable print
+  window.addEventListener('beforeprint', function(e) {
+    e.preventDefault();
+    return false;
+  });
+
+  // Override console methods to deter casual inspection
+  const originalLog = console.log;
+  console.log = function() {
+    // Allow logs from our own app
+    originalLog.apply(console, arguments);
+  };
+
+})();

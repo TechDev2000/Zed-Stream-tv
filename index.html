@@ -13,16 +13,11 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8"></script>
 
 <base target="_blank">
-<base target="_blank">
-<base target="_blank">
-<base target="_blank">
-<base target="_blank">
 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -57,6 +52,42 @@
       <svg viewBox="0 0 24 24"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"></path></svg>
       Live TV
       <span class="badge" id="liveBadge" style="display:none">LIVE</span>
+    </div>
+    <div class="sidebar-nav-item" data-view="trending" id="navTrending">
+      <svg viewBox="0 0 24 24"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"></path></svg>
+       Trending
+    </div>
+    <div class="sidebar-nav-item" data-view="latest" id="navLatest">
+      <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 12h4v2H4v-2zm6 0h4v2h-4v-2zm6 0h4v2h-4v-2z"></path></svg>
+       Latest Movies
+    </div>
+    <div class="sidebar-nav-item" data-view="popular" id="navPopular">
+      <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"></path></svg>
+       Popular
+    </div>
+    <div class="sidebar-nav-item" data-view="africa" id="navAfrica">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path></svg>
+       Africa Home Grown
+    </div>
+    <div class="sidebar-nav-item" data-view="netflix" id="navNetflix">
+      <svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"></path></svg>
+       Netflix
+    </div>
+    <div class="sidebar-nav-item" data-view="hbo" id="navHBO">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>
+       HBO
+    </div>
+    <div class="sidebar-nav-item" data-view="prime" id="navPrime">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>
+       Prime Video
+    </div>
+    <div class="sidebar-nav-item" data-view="disney" id="navDisney">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>
+       Disney+
+    </div>
+    <div class="sidebar-nav-item" data-view="classic" id="navClassic">
+      <svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"></path></svg>
+       Classic Movies
     </div>
     <div class="sidebar-nav-item" data-view="kids" id="navKids">
       <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path></svg>
@@ -103,8 +134,18 @@
     <div class="logo" onclick="switchTab('movies')" style="display:none">Zed<span>Stream</span></div>
   </div>
   <div class="tab-group" id="tabGroup">
-    <button class="tab-btn active" data-type="movies">Movies</button>
+    <button class="tab-btn active" data-type="browse">Browse</button>
+    <button class="tab-btn" data-type="movies">Movies</button>
     <button class="tab-btn" data-type="tv">TV Shows</button>
+    <button class="tab-btn" data-type="trending"> Trending</button>
+    <button class="tab-btn" data-type="latest"> Latest</button>
+    <button class="tab-btn" data-type="popular"> Popular</button>
+    <button class="tab-btn" data-type="africa"> Africa</button>
+    <button class="tab-btn" data-type="netflix"> Netflix</button>
+    <button class="tab-btn" data-type="hbo"> HBO</button>
+    <button class="tab-btn" data-type="prime"> Prime</button>
+    <button class="tab-btn" data-type="disney"> Disney+</button>
+    <button class="tab-btn" data-type="classic"> Classic</button>
     <button class="tab-btn" data-type="kids_movies">Kids Movies</button>
     <button class="tab-btn" data-type="kids_tv">Kids TV</button>
     <button class="tab-btn" data-type="livetv">Live TV</button>
@@ -160,7 +201,7 @@
 <!-- Continue Watching Section -->
 <div class="slider-section hidden" id="continueWatchingSection">
   <div class="slider-header">
-    <div class="slider-title"><span class="fire">⏸</span> Continue Watching</div>
+    <div class="slider-title"><span class="fire"></span> Continue Watching</div>
     <div class="slider-nav">
       <button class="slider-nav-btn" id="continuePrev">‹</button>
       <button class="slider-nav-btn" id="continueNext">›</button>
@@ -468,6 +509,12 @@
     </div>
   </div>
 </div>
+
+
+
+
+
+
 <!-- ===== NETFLIX-STYLE PROFILE / MY ACCOUNT ===== -->
 <div class="section hidden" id="profileSection">
   <div class="netflix-profile">
@@ -777,102 +824,6 @@
 
 
 <!-- ===== COPY PROTECTION ===== -->
-<script>
-(function() {
-  'use strict';
-
-  // Disable right-click context menu
-  document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-    return false;
-  }, true);
-
-  // Disable text selection
-  document.addEventListener('selectstart', function(e) {
-    e.preventDefault();
-    return false;
-  }, true);
-
-  // Disable drag and drop
-  document.addEventListener('dragstart', function(e) {
-    e.preventDefault();
-    return false;
-  }, true);
-
-  // Disable copy, cut, paste keyboard shortcuts
-  document.addEventListener('keydown', function(e) {
-    // Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+A, Ctrl+S, Ctrl+P, Ctrl+U (view source)
-    if (e.ctrlKey || e.metaKey) {
-      const blockedKeys = ['c', 'x', 'v', 'a', 's', 'p', 'u'];
-      if (blockedKeys.includes(e.key.toLowerCase())) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    }
-    // F12 (DevTools), Ctrl+Shift+I/J/C
-    if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(e.key.toLowerCase()))) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-  }, true);
-
-  // Disable copy event
-  document.addEventListener('copy', function(e) {
-    e.preventDefault();
-    return false;
-  }, true);
-
-  // Disable cut event
-  document.addEventListener('cut', function(e) {
-    e.preventDefault();
-    return false;
-  }, true);
-
-  // Disable paste event (except on input fields for usability)
-  document.addEventListener('paste', function(e) {
-    const target = e.target;
-    if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
-      e.preventDefault();
-      return false;
-    }
-  }, true);
-
-  // Prevent developer tools detection bypass attempts
-  let devtoolsOpen = false;
-  const threshold = 160;
-
-  setInterval(function() {
-    const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-    const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-    if (widthThreshold || heightThreshold) {
-      if (!devtoolsOpen) {
-        devtoolsOpen = true;
-        console.clear();
-        console.log('%cStop!', 'color: red; font-size: 50px; font-weight: bold;');
-        console.log('%cThis is a browser feature intended for developers.', 'font-size: 16px;');
-      }
-    } else {
-      devtoolsOpen = false;
-    }
-  }, 500);
-
-  // Disable print
-  window.addEventListener('beforeprint', function(e) {
-    e.preventDefault();
-    return false;
-  });
-
-  // Override console methods to deter casual inspection
-  const originalLog = console.log;
-  console.log = function() {
-    // Allow logs from our own app
-    originalLog.apply(console, arguments);
-  };
-
-})();
-</script>
 
 
   <script src="app.js"></script>

@@ -59,8 +59,9 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
 .logo { font-family: var(--font-display); font-size: 24px; font-weight: 700; letter-spacing: -0.03em; cursor: pointer; user-select: none; color: var(--text-primary); transition: opacity 0.2s; }
 .logo:hover { opacity: 0.8; }
 .logo span { color: var(--accent); font-weight: 800; }
-.tab-group { display: flex; gap: 1px; background: var(--surface-1); padding: 2px; border-radius: var(--radius-md); border: 1px solid var(--border-1); flex-wrap: nowrap; white-space: nowrap; flex-shrink: 1; min-width: 0; }
-.tab-btn { background: none; border: none; color: var(--text-tertiary); padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.25s var(--ease-out); letter-spacing: 0.01em; position: relative; overflow: hidden; white-space: nowrap; }
+.tab-group { display: flex; gap: 1px; background: var(--surface-1); padding: 2px; border-radius: var(--radius-md); border: 1px solid var(--border-1); flex-wrap: nowrap; white-space: nowrap; flex-shrink: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; }
+.tab-group::-webkit-scrollbar { display: none; }
+.tab-btn { background: none; border: none; color: var(--text-tertiary); padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.25s var(--ease-out); letter-spacing: 0.01em; position: relative; overflow: hidden; white-space: nowrap; flex-shrink: 0; }
 .tab-btn:hover { color: var(--text-secondary); background: var(--surface-1); }
 .tab-btn.active { background: var(--accent); color: #fff; box-shadow: 0 2px 16px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.1); font-weight: 700; }
 .search-row { position: relative; margin-left: auto; display: flex; align-items: center; gap: 6px; background: var(--surface-1); border: 1px solid var(--border-1); border-radius: var(--radius-md); padding: 3px 3px 3px 4px; transition: all 0.25s var(--ease-out); width: 280px; flex-shrink: 0; }
@@ -87,7 +88,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     background: var(--bg-0);
 }
 
-/* ── SLIDES ── */
+/*  SLIDES  */
 .hero-carousel-track {
     position: relative;
     width: 100%;
@@ -110,7 +111,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     z-index: 2;
 }
 
-/* ── KEN BURNS BACKGROUND ── */
+/*  KEN BURNS BACKGROUND  */
 .hero-carousel-slide .hero-img {
     position: absolute;
     inset: -5%;
@@ -167,7 +168,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     100% { transform: scale(1.1) translate(-2%, 0); }
 }
 
-/* ── GRADIENT OVERLAYS ── */
+/*  GRADIENT OVERLAYS  */
 .hero-carousel-slide .hero-img::after {
     content: '';
     position: absolute;
@@ -196,7 +197,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     pointer-events: none;
 }
 
-/* ── CONTENT AREA ── */
+/*  CONTENT AREA  */
 .hero-content {
     position: absolute;
     bottom: 0;
@@ -212,7 +213,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     pointer-events: auto;
 }
 
-/* ── BADGE ── */
+/*  BADGE  */
 .hero-badge {
     display: inline-flex;
     align-items: center;
@@ -236,7 +237,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── TITLE ── */
+/*  TITLE  */
 .hero-title {
     font-family: var(--font-display);
     font-size: clamp(36px, 5vw, 64px);
@@ -254,7 +255,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── META ── */
+/*  META  */
 .hero-meta {
     display: flex;
     gap: 16px;
@@ -292,7 +293,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     font-weight: 700;
 }
 
-/* ── OVERVIEW ── */
+/*  OVERVIEW  */
 .hero-overview {
     font-size: 16px;
     line-height: 1.7;
@@ -313,7 +314,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── ACTION BUTTONS ── */
+/*  ACTION BUTTONS  */
 .hero-actions {
     display: flex;
     gap: 12px;
@@ -384,7 +385,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     box-shadow: 0 4px 16px rgba(0,0,0,0.3);
 }
 
-/* ── NAVIGATION ARROWS ── */
+/*  NAVIGATION ARROWS  */
 .hero-carousel-nav {
     position: absolute;
     top: 0;
@@ -447,7 +448,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     z-index: 1;
 }
 
-/* ── PROGRESS INDICATOR (Netflix-style bottom bar) ── */
+/*  PROGRESS INDICATOR (Netflix-style bottom bar)  */
 .hero-carousel-progress {
     position: absolute;
     bottom: 0;
@@ -495,7 +496,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     border-radius: 2px;
 }
 
-/* ── DOTS (alternative to progress bars on small screens) ── */
+/*  DOTS (alternative to progress bars on small screens)  */
 .hero-carousel-dots {
     position: absolute;
     bottom: 36px;
@@ -528,7 +529,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     background: rgba(255,255,255,0.5);
 }
 
-/* ── RANK NUMBER (Netflix top 10 style) ── */
+/*  RANK NUMBER (Netflix top 10 style)  */
 .hero-rank {
     position: absolute;
     right: 40px;
@@ -550,7 +551,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     to { opacity: 1; transform: scale(1); }
 }
 
-/* ── MUTE TOGGLE (ambient video style) ── */
+/*  MUTE TOGGLE (ambient video style)  */
 .hero-mute-btn {
     position: absolute;
     top: 24px;
@@ -586,7 +587,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     fill: currentColor;
 }
 
-/* ── AGE RATING BADGE ── */
+/*  AGE RATING BADGE  */
 .hero-age-badge {
     display: inline-flex;
     align-items: center;
@@ -599,7 +600,7 @@ header { position: sticky; top: 0; z-index: 100; background: rgba(6,6,8,0.92); b
     margin-left: 8px;
 }
 
-/* ── RESPONSIVE ── */
+/*  RESPONSIVE  */
 @media (max-width: 900px) {
     .hero-carousel {
         height: 70vh;
@@ -1937,8 +1938,9 @@ video::cue(b) {
    ============================================================ *//* RESPONSIVE */
 @media (max-width: 700px) {
   header { padding: 0 16px; gap: 12px; flex-wrap: wrap; height: auto; min-height: 60px; padding-top: 10px; padding-bottom: 10px; }
-  .tab-group { order: 3; width: 100%; justify-content: center; margin-top: 4px; }
-  .tab-btn { padding: 4px 8px; font-size: 10px; }
+  .tab-group { order: 3; width: 100%; justify-content: flex-start; margin-top: 4px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+  .tab-group::-webkit-scrollbar { display: none; }
+  .tab-btn { padding: 4px 8px; font-size: 10px; flex-shrink: 0; }
   .search-row { width: auto; flex: 1; min-width: 140px; }
   .search-row input { width: 100%; }
   .hero { padding: 32px 20px; height: 400px; }
