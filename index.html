@@ -11,14 +11,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8"></script>
-
+<link rel="stylesheet" href="styles.css">
 <base target="_blank">
-
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -284,6 +282,7 @@
   <div class="player-video-area" id="playerVideoArea">
     <div class="player-video-wrapper" id="playerVideoWrapper">
       <video id="playerVideo" crossorigin="anonymous" playsinline></video>
+      <div id="subtitleOverlay" style="position:absolute;bottom:70px;left:0;right:0;text-align:center;pointer-events:none;z-index:10;padding:0 40px;display:none;font-family:'Inter',sans-serif;font-size:clamp(18px,2.5vw,28px);color:#fff;font-weight:500;line-height:1.5;background:none !important;text-shadow:0 0 1px rgba(0,0,0,1.0),0 0 2px rgba(0,0,0,0.98),0 0 4px rgba(0,0,0,0.95),0 0 8px rgba(0,0,0,0.9),0 0 16px rgba(0,0,0,0.8),0 1px 2px rgba(0,0,0,0.95),0 2px 4px rgba(0,0,0,0.9);"></div>
     </div>
 
     <!-- Center Play/Pause -->
@@ -432,16 +431,24 @@
         <div class="player-sub-dropdown" id="playerSubDropdown"></div>
       </div>
 
-      <!-- Subtitle Position -->
-      <div style="position:relative;">
-        <button class="player-subpos-btn" id="playerSubPosBtn" title="Subtitle Position (V)">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-            <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"></path>
-          </svg>
-          <span class="pos-indicator"></span>
-        </button>
-        <div class="player-subpos-dropdown" id="playerSubPosDropdown"></div>
-      </div>
+      <!-- Subtitle Position (single button cycles through positions) -->
+      <button class="player-subpos-btn" id="playerSubPosBtn" title="Position (V) | Size (S)">
+        <svg id="subposIconBottom" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <path d="M4 18h16v2H4zm0-5h16v2H4zm0-10h16v2H4z" opacity="0.3"/><path d="M4 18h16v2H4z"/>
+        </svg>
+        <svg id="subposIconTop" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="display:none">
+          <path d="M4 6h16v2H4z"/><path d="M4 11h16v2H4zm0 5h16v2H4z" opacity="0.3"/>
+        </svg>
+        <svg id="subposIconMiddle" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="display:none">
+          <path d="M4 6h16v2H4zm0 10h16v2H4z" opacity="0.3"/><path d="M4 11h16v2H4z"/>
+        </svg>
+        <svg id="subposIconLowerThird" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="display:none">
+          <path d="M4 6h16v2H4zm0 5h16v2H4z" opacity="0.3"/><path d="M4 16h16v2H4z"/>
+        </svg>
+        <svg id="subposIconVeryBottom" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="display:none">
+          <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" opacity="0.3"/><path d="M4 20h16v2H4z"/>
+        </svg>
+      </button>
 
       <!-- Speed -->
       <div style="position:relative;">
@@ -450,6 +457,26 @@
         </button>
         <div class="player-speed-dropdown" id="playerSpeedDropdown"></div>
       </div>
+
+      <!-- Fit Mode (single button cycles through modes) -->
+      <button class="player-control-btn" id="playerFitBtn" title="Cycle Video Fit Mode (Z)">
+        <svg id="fitIconContain" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+          <rect x="3" y="5" width="18" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="2"/>
+          <rect x="6" y="8" width="12" height="8" rx="0.5" fill="currentColor" opacity="0.7"/>
+        </svg>
+        <svg id="fitIconCover" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="display:none">
+          <rect x="2" y="2" width="20" height="20" rx="1" fill="none" stroke="currentColor" stroke-width="2"/>
+          <rect x="4" y="6" width="16" height="12" rx="0.5" fill="currentColor" opacity="0.7"/>
+        </svg>
+        <svg id="fitIconFill" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="display:none">
+          <rect x="2" y="4" width="20" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="2"/>
+          <rect x="2" y="4" width="20" height="16" rx="0.5" fill="currentColor" opacity="0.7"/>
+        </svg>
+        <svg id="fitIconNone" viewBox="0 0 24 24" width="22" height="22" fill="currentColor" style="display:none">
+          <rect x="6" y="6" width="12" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="2"/>
+          <rect x="8" y="8" width="8" height="8" rx="0.5" fill="currentColor" opacity="0.7"/>
+        </svg>
+      </button>
 
       <!-- Fullscreen -->
       <button class="player-control-btn player-fs-btn" id="playerFsBtn" title="Fullscreen (F)">
@@ -509,7 +536,7 @@
     </div>
   </div>
 </div>
-
+<script src="app.js"></script>
 
 
 
@@ -824,8 +851,7 @@
 
 
 <!-- ===== COPY PROTECTION ===== -->
+<script src="player.js"></script>
 
-
-  <script src="app_encrypted.js"></script>
 </body>
 </html>
