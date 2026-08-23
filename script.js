@@ -415,6 +415,8 @@ function showDevicePopup(otherDeviceId, limit) {
 /* ===== AUTH FLOW ===== */
 function showLogin() {
   document.getElementById('loginOverlay').style.display = 'flex';
+  const btn = document.getElementById('loginBtn');
+  if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('open');
   hideSubGate();
@@ -464,12 +466,14 @@ async function performLogin() {
   }
 
   btn.disabled = true;
+  btn.classList.add('loading');
   errorEl.textContent = '';
 
   try {
     await firebaseAuth.signInWithEmailAndPassword(email, password);
   } catch (e) {
     btn.disabled = false;
+    btn.classList.remove('loading');
     if (e.code === 'auth/user-not-found') errorEl.textContent = 'Account not found.';
     else if (e.code === 'auth/wrong-password') errorEl.textContent = 'Incorrect password.';
     else if (e.code === 'auth/invalid-email') errorEl.textContent = 'Invalid email address.';
