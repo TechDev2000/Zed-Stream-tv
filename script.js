@@ -607,7 +607,7 @@ async function fetchLiveChannels() {
 }
 
 function getLiveCategories(channels) {
-  const cats = new Set();
+  const cats = new Set(['movies & series', 'religious', 'lifestyle & travel']);
   channels.forEach(c => { if (c.category) cats.add(c.category); });
   const allCats = ['all', ...Array.from(cats).sort()];
   if (!matureUnlocked) return allCats.filter(c => c !== 'mature' && c !== '18+');
@@ -618,7 +618,9 @@ function renderLiveCategoryChips() {
   const container = document.getElementById('liveCategoryChips');
   if (!container) return;
   container.innerHTML = liveCategories.map(cat => {
-    const label = cat === 'all' ? 'All Channels' : cat.charAt(0).toUpperCase() + cat.slice(1);
+    let label;
+    if (cat === 'all') label = 'All Channels';
+    else label = cat.split(/[\s&]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     return `<button class="live-category-chip ${cat === activeLiveCategory ? 'active' : ''}" data-cat="${cat}">${label}</button>`;
   }).join('');
   container.querySelectorAll('.live-category-chip').forEach(chip => {
