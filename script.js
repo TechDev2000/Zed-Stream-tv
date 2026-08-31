@@ -1,3 +1,81 @@
+/* ===== ANDROID WEBVIEW POLYFILLS ===== */
+// Array.prototype.find (WebView < 45)
+if (!Array.prototype.find) {
+  Array.prototype.find = function(predicate) {
+    if (this == null) throw new TypeError('find called on null or undefined');
+    if (typeof predicate !== 'function') throw new TypeError('predicate must be a function');
+    var list = Object(this), length = list.length >>> 0, thisArg = arguments[1], value;
+    for (var i = 0; i < length; i++) {
+      value = list[i];
+      if (predicate.call(thisArg, value, i, list)) return value;
+    }
+    return undefined;
+  };
+}
+// Array.prototype.findIndex (WebView < 45)
+if (!Array.prototype.findIndex) {
+  Array.prototype.findIndex = function(predicate) {
+    if (this == null) throw new TypeError('findIndex called on null or undefined');
+    if (typeof predicate !== 'function') throw new TypeError('predicate must be a function');
+    var list = Object(this), length = list.length >>> 0, thisArg = arguments[1];
+    for (var i = 0; i < length; i++) {
+      if (predicate.call(thisArg, list[i], i, list)) return i;
+    }
+    return -1;
+  };
+}
+// String.prototype.includes (WebView < 47)
+if (!String.prototype.includes) {
+  String.prototype.includes = function(search, start) {
+    if (typeof start !== 'number') start = 0;
+    if (start + search.length > this.length) return false;
+    return this.indexOf(search, start) !== -1;
+  };
+}
+// Element.prototype.closest (WebView < 35)
+if (!Element.prototype.closest) {
+  Element.prototype.closest = function(s) {
+    var el = this;
+    do { if (el.matches(s)) return el; el = el.parentElement || el.parentNode; } while (el !== null && el.nodeType === 1);
+    return null;
+  };
+}
+// Element.prototype.matches (WebView < 33)
+if (!Element.prototype.matches) {
+  Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
+}
+// Object.assign (WebView < 45)
+if (!Object.assign) {
+  Object.assign = function(target) {
+    if (target == null) throw new TypeError('Cannot convert undefined or null to object');
+    var to = Object(target);
+    for (var i = 1; i < arguments.length; i++) {
+      var nextSource = arguments[i];
+      if (nextSource != null) {
+        for (var nextKey in nextSource) {
+          if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) to[nextKey] = nextSource[nextKey];
+        }
+      }
+    }
+    return to;
+  };
+}
+// NodeList.prototype.forEach (WebView < 51)
+if (window.NodeList && !NodeList.prototype.forEach) {
+  NodeList.prototype.forEach = Array.prototype.forEach;
+}
+// Element.prototype.classList.toggle with 2nd arg polyfill
+(function() {
+  var toggle = DOMTokenList.prototype.toggle;
+  DOMTokenList.prototype.toggle = function(token, force) {
+    if (arguments.length > 1) {
+      if (force) this.add(token); else this.remove(token);
+      return !!force;
+    }
+    return toggle.call(this, token);
+  };
+})();
+
 /* ===== CONFIG ===== */
 const PASTEFY_API_KEY = 'mEQy1tvH7DTSuqOW0d8R2duwhwxZVYz0F0kfzRMijbypfrNRUUSTtnxj9AtN';
 const SUBSCRIPTION_PASTE_ID = 'ePhfxmdW';
@@ -414,6 +492,7 @@ function showDevicePopup(otherDeviceId, limit) {
 
 /* ===== AUTH FLOW ===== */
 function showLogin() {
+  document.body.classList.remove('profile-active');
   document.getElementById('loginOverlay').style.display = 'flex';
   const btn = document.getElementById('loginBtn');
   if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
@@ -607,7 +686,7 @@ async function fetchLiveChannels() {
 }
 
 function getLiveCategories(channels) {
-  const cats = new Set(['movies & series', 'religious', 'lifestyle & travel']);
+  const cats = new Set();
   channels.forEach(c => { if (c.category) cats.add(c.category); });
   const allCats = ['all', ...Array.from(cats).sort()];
   if (!matureUnlocked) return allCats.filter(c => c !== 'mature' && c !== '18+');
@@ -664,14 +743,13 @@ function renderLiveChannels() {
   }
 
   grid.innerHTML = filtered.map((ch, i) => {
-    const catClass = ch.category ? ch.category.split(/[\s&]+/)[0].trim().toLowerCase() : 'live';
+    const catClass = ch.category ? (ch.category.toLowerCase().includes('movie') ? 'movies' : ch.category.toLowerCase().includes('lifestyle') ? 'lifestyle' : ch.category.toLowerCase().includes('travel') ? 'lifestyle' : ch.category.split(/[\s&]+/)[0].trim().toLowerCase()) : 'live';
     const isMature = isMatureChannel(ch);
     const imgHtml = ch.img ? `<img src="${ch.img}" alt="${ch.name}" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML='<svg width=32 height=32 viewBox=\'0 0 24 24\' fill=\'rgba(255,255,255,0.15)\'><path d=\'M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z\'></path></svg>'">` : `<svg width="32" height="32" viewBox="0 0 24 24" fill="rgba(255,255,255,0.15)"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"></path></svg>`;
     return `
       <div class="live-card" data-liveidx="${i}" ${isMature ? 'data-mature="true"' : ''}>
         <div class="live-card-img-wrap">
           ${imgHtml}
-          <div class="live-indicator"><span class="live-indicator-dot"></span>LIVE</div>
           <div class="live-card-badge ${catClass}">${ch.badge || catClass}</div>
           <div class="live-card-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></div>
           ${isMature && !matureUnlocked ? `
@@ -806,7 +884,7 @@ function initPinSystem() {
 function setPinDigit(index, value) {
   if (index >= 0 && index < 4) {
     pinInputs[index].value = value;
-    pinInputs[index].classList.toggle('filled', !!value);
+    if (!!value) pinInputs[index].classList.add('filled'); else pinInputs[index].classList.remove('filled');
   }
 }
 
@@ -897,11 +975,21 @@ function highlightSearch(text, query) {
 function initSearch() {
   const searchInput = document.getElementById('liveSearchInput');
   const clearBtn = document.getElementById('searchClearBtn');
-  if (!searchInput) return;
+  if (!searchInput) { console.warn('[Search] Input not found'); return; }
+  if (!clearBtn) { console.warn('[Search] Clear button not found'); }
+
+  function updateClearBtn() {
+    if (!clearBtn) return;
+    if (liveSearchQuery && liveSearchQuery.trim().length > 0) {
+      clearBtn.classList.remove('hidden');
+    } else {
+      clearBtn.classList.add('hidden');
+    }
+  }
 
   searchInput.addEventListener('input', (e) => {
     liveSearchQuery = e.target.value;
-    if (clearBtn) clearBtn.style.display = liveSearchQuery ? 'flex' : 'none';
+    updateClearBtn();
     renderLiveChannels();
   });
 
@@ -909,7 +997,7 @@ function initSearch() {
     if (e.key === 'Escape') {
       searchInput.value = '';
       liveSearchQuery = '';
-      if (clearBtn) clearBtn.style.display = 'none';
+      updateClearBtn();
       renderLiveChannels();
       searchInput.blur();
     }
@@ -919,16 +1007,16 @@ function initSearch() {
     clearBtn.addEventListener('click', () => {
       searchInput.value = '';
       liveSearchQuery = '';
-      clearBtn.style.display = 'none';
+      updateClearBtn();
       renderLiveChannels();
       searchInput.focus();
     });
   }
 }
 
-
 /* ===== PROFILE PAGE ===== */
 function showProfilePage() {
+  document.body.classList.add('profile-active');
   document.getElementById('liveTVSection').style.display = 'none';
   document.getElementById('profilePage').classList.add('active');
   document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
@@ -937,6 +1025,7 @@ function showProfilePage() {
 }
 
 function showLiveTVPage() {
+  document.body.classList.remove('profile-active');
   document.getElementById('liveTVSection').style.display = 'block';
   document.getElementById('profilePage').classList.remove('active');
   document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
