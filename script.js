@@ -779,7 +779,18 @@ function renderLiveChannels() {
   });
 }
 
+function showChannelsPreloader() {
+  const el = document.getElementById('channelsPreloader');
+  if (el) el.classList.add('active');
+}
+
+function hideChannelsPreloader() {
+  const el = document.getElementById('channelsPreloader');
+  if (el) el.classList.remove('active');
+}
+
 async function loadLiveTV() {
+  showChannelsPreloader();
   const grid = document.getElementById('liveGrid');
   if (grid) {
     grid.innerHTML = '';
@@ -799,6 +810,7 @@ async function loadLiveTV() {
           <div class="empty-state-desc">${result.error}. Please try again later.</div>
         </div>`;
     }
+    hideChannelsPreloader();
     return;
   }
   liveChannels = result.data || [];
@@ -806,9 +818,18 @@ async function loadLiveTV() {
   if (!matureUnlocked && (activeLiveCategory === 'mature' || activeLiveCategory === '18+')) activeLiveCategory = 'all';
   renderLiveCategoryChips();
   renderLiveChannels();
+  hideChannelsPreloader();
 }
 
 async function playLiveChannel(channel) {
+  // Check internet connection BEFORE anything else
+  if (currentNetworkState === NETWORK_STATES.OFFLINE || currentNetworkState === NETWORK_STATES.NO_DATA || !navigator.onLine) {
+    showToast('No Network Available', 'You cannot play this channel. It requires an active internet connection.', 'error');
+    // Also trigger an immediate re-check so the state stays accurate
+    checkNetworkState();
+    return;
+  }
+
   // Check subscription before playing
   const hasAccess = await checkSubscriptionBeforePlay();
   if (!hasAccess) return;
@@ -1289,10 +1310,228 @@ document.getElementById('sidebarLogoutBtn').addEventListener('click', () => {
 });
 document.getElementById('subGateLogoutBtn').addEventListener('click', performLogout);
 
+/* ===== ADVANCED NETWORK DETECTION ===== */
+const NETWORK_STATES = {
+  ONLINE: 'online',
+  OFFLINE: 'offline',
+  NO_DATA: 'no_data',
+  CHECKING: 'checking'
+};
+
+let currentNetworkState = NETWORK_STATES.CHECKING;
+let networkCheckTimer = null;
+const NETWORK_CHECK_INTERVAL = 15000; // Check every 15 seconds
+const NETWORK_CHECK_URL = 'https://www.google.com/favicon.ico?_=';
+
+function initNetworkDetection() {
+  const banner = document.getElementById('offlineBanner');
+  if (!banner) return;
+
+  // Initial check
+  checkNetworkState();
+
+  // Listen for browser online/offline events
+  window.addEventListener('online', () => {
+    setTimeout(checkNetworkState, 500);
+  });
+  window.addEventListener('offline', () => {
+    setNetworkState(NETWORK_STATES.OFFLINE);
+  });
+
+  // Periodic heartbeat check
+  networkCheckTimer = setInterval(checkNetworkState, NETWORK_CHECK_INTERVAL);
+
+  // Also check when app becomes visible again
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      checkNetworkState();
+    }
+  });
+}
+
+async function checkNetworkState() {
+  // Step 1: Check navigator.onLine first
+  if (!navigator.onLine) {
+    setNetworkState(NETWORK_STATES.OFFLINE);
+    return;
+  }
+
+  // Step 2: Try to actually fetch something to verify real connectivity
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    await fetch(NETWORK_CHECK_URL + Date.now(), {
+      method: 'HEAD',
+      mode: 'no-cors',
+      cache: 'no-store',
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+    setNetworkState(NETWORK_STATES.ONLINE);
+  } catch (err) {
+    // Fetch failed - could be no data bundles, captive portal, or blocked
+    if (err.name === 'AbortError') {
+      setNetworkState(NETWORK_STATES.NO_DATA);
+    } else {
+      // Check connection type for more specific messaging
+      const connType = getConnectionType();
+      if (connType === 'cellular' || connType === '4g' || connType === '3g' || connType === '2g') {
+        setNetworkState(NETWORK_STATES.NO_DATA);
+      } else {
+        setNetworkState(NETWORK_STATES.OFFLINE);
+      }
+    }
+  }
+}
+
+function getConnectionType() {
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn) {
+    return conn.effectiveType || conn.type || 'unknown';
+  }
+  return 'unknown';
+}
+
+function setNetworkState(state) {
+  if (currentNetworkState === state) return;
+  const prevState = currentNetworkState;
+  currentNetworkState = state;
+
+  const banner = document.getElementById('offlineBanner');
+  if (!banner) return;
+
+  const iconEl = banner.querySelector('svg');
+  const textEl = banner.querySelector('span');
+
+  // Reset classes
+  banner.classList.remove('visible', 'no-data', 'offline-state');
+  document.body.classList.remove('offline', 'no-data');
+
+  switch (state) {
+    case NETWORK_STATES.ONLINE:
+      if (prevState !== NETWORK_STATES.CHECKING) {
+        showToast('Connected', 'Your internet connection is active.', 'success');
+      }
+      break;
+
+    case NETWORK_STATES.OFFLINE:
+      banner.classList.add('visible', 'offline-state');
+      document.body.classList.add('offline');
+      if (iconEl) iconEl.innerHTML = '<path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"></path>';
+      if (textEl) textEl.textContent = 'No internet connection';
+      if (prevState === NETWORK_STATES.ONLINE) {
+        showToast('Disconnected', 'You have lost your internet connection.', 'error');
+      }
+      break;
+
+    case NETWORK_STATES.NO_DATA:
+      banner.classList.add('visible', 'no-data');
+      document.body.classList.add('no-data');
+      if (iconEl) iconEl.innerHTML = '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path>';
+      if (textEl) textEl.textContent = 'No data bundles — Connect to WiFi or buy data';
+      if (prevState === NETWORK_STATES.ONLINE) {
+        showToast('No Data', 'Your data bundles may have run out. Please check your balance.', 'error');
+      }
+      break;
+  }
+}
+
+function stopNetworkChecks() {
+  if (networkCheckTimer) {
+    clearInterval(networkCheckTimer);
+    networkCheckTimer = null;
+  }
+}
+
+
+/* ===== PULL TO REFRESH (silent — no visible indicator) ===== */
+const PTR_THRESHOLD = 45;
+let ptrStartY = 0;
+let ptrCurrentDist = 0;
+let ptrActive = false;
+let ptrRefreshing = false;
+let ptrPointerDown = false;
+
+function ptrOverlaysOpen() {
+  return document.getElementById('pinModalOverlay').classList.contains('active')
+    || document.getElementById('confirmModalOverlay').classList.contains('active')
+    || document.getElementById('devicePopupOverlay').classList.contains('active')
+    || document.getElementById('subGateOverlay').classList.contains('active')
+    || document.getElementById('sidebar').classList.contains('open')
+    || document.getElementById('loginOverlay').style.display !== 'none';
+}
+
+function ptrCanActivate() {
+  const section = document.getElementById('liveTVSection');
+  if (!section || section.style.display === 'none') return false;
+  if (document.body.classList.contains('profile-active')) return false;
+  if (ptrOverlaysOpen()) return false;
+  return (window.pageYOffset || document.documentElement.scrollTop || 0) <= 0;
+}
+
+function ptrOnStart(y) {
+  if (ptrRefreshing) return;
+  ptrPointerDown = true;
+  ptrStartY = y;
+  ptrCurrentDist = 0;
+  ptrActive = ptrCanActivate();
+}
+
+function ptrOnMove(y) {
+  if (!ptrPointerDown || ptrRefreshing) return;
+  const dy = y - ptrStartY;
+  if (!ptrActive) {
+    if (dy > 10 && ptrCanActivate()) { ptrActive = true; ptrStartY = y; }
+    else return;
+  }
+  if ((window.pageYOffset || document.documentElement.scrollTop || 0) > 0) {
+    ptrActive = false;
+    ptrCurrentDist = 0;
+    return;
+  }
+  if (dy <= 0) { ptrCurrentDist = 0; return; }
+  ptrCurrentDist = Math.min(dy * 0.5, 90);
+}
+
+function ptrOnEnd() {
+  if (!ptrPointerDown) return;
+  ptrPointerDown = false;
+  if (ptrRefreshing) { ptrActive = false; return; }
+  if (ptrActive && ptrCurrentDist >= PTR_THRESHOLD) {
+    ptrRefreshing = true;
+    doPtrRefresh();
+  }
+  ptrActive = false;
+  ptrCurrentDist = 0;
+}
+
+async function doPtrRefresh() {
+  try { await loadLiveTV(); } catch (e) { console.error('[PTR] refresh error:', e); }
+  ptrRefreshing = false;
+}
+
+function initPullToRefresh() {
+  const section = document.getElementById('liveTVSection');
+  if (!section) return;
+  // Touch (Android WebView)
+  section.addEventListener('touchstart', (e) => { ptrOnStart(e.touches[0].clientY); }, { passive: true });
+  window.addEventListener('touchmove', (e) => { if (ptrPointerDown) ptrOnMove(e.touches[0].clientY); }, { passive: true });
+  window.addEventListener('touchend', ptrOnEnd, { passive: true });
+  window.addEventListener('touchcancel', ptrOnEnd, { passive: true });
+  // Mouse (desktop testing)
+  section.addEventListener('mousedown', (e) => { ptrOnStart(e.clientY); });
+  window.addEventListener('mousemove', (e) => { if (ptrPointerDown) ptrOnMove(e.clientY); });
+  window.addEventListener('mouseup', ptrOnEnd);
+}
+
 /* ===== INIT ===== */
 initFirebase();
 initPinSystem();
 initSearch();
+initNetworkDetection();
+initPullToRefresh();
 loadLiveTV();
 
 document.addEventListener('keydown', (e) => {
