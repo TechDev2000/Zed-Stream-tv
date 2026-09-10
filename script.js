@@ -930,7 +930,7 @@ function parseEventTime(t) {
 function formatCountdown(ts) {
   var diff = ts - Date.now();
   if (isNaN(ts)) return '';
-  if (diff <= 0) return 'Live now';
+  if (diff <= 0) return 'LIVE';
   var mins = Math.floor(diff / 60000);
   var d = Math.floor(mins / 1440);
   var h = Math.floor((mins % 1440) / 60);
@@ -947,6 +947,21 @@ function formatEventTime(ts) {
   } catch (e) { return ''; }
 }
 
+function cunIsSameLocalDay(ts, refTs) {
+  var d = new Date(ts), r = new Date(refTs);
+  return d.getFullYear() === r.getFullYear() && d.getMonth() === r.getMonth() && d.getDate() === r.getDate();
+}
+
+// A show is visible only if it starts TODAY and hasn't ended yet.
+// A show "ends" 3 hours after its start time, then it removes itself.
+function cunIsVisible(ev, nowTs) {
+  var THREE_HOURS = 3 * 60 * 60 * 1000;
+  if (isNaN(ev._ts)) return false;
+  if (!cunIsSameLocalDay(ev._ts, nowTs)) return false; // today only
+  if (nowTs > ev._ts + THREE_HOURS) return false;      // ended 3h ago
+  return true;
+}
+
 function renderComingUpNext() {
   var section = document.getElementById('comingUpSection');
   var row = document.getElementById('comingUpRow');
@@ -960,7 +975,7 @@ function renderComingUpNext() {
   var THREE_HOURS = 3 * 60 * 60 * 1000;
   var events = (comingUpNext || [])
     .map(function(ev) { ev._ts = parseEventTime(ev.time); return ev; })
-    .filter(function(ev) { return !isNaN(ev._ts) && ev._ts > now - THREE_HOURS; })
+    .filter(function(ev) { return cunIsVisible(ev, now); })
     .sort(function(a, b) { return a._ts - b._ts; });
 
   if (events.length === 0) {
@@ -1006,19 +1021,24 @@ function renderComingUpNext() {
     });
   });
 
-  // Live countdown ticker (every 30s)
+  // Live countdown ticker (every 15s) — flips badges to LIVE at showtime
+  // and auto-removes shows that ended (3 hours after start)
   comingUpTimer = setInterval(function() {
+    var nowTs = Date.now();
     var badges = row.querySelectorAll('.coming-up-countdown');
-    var liveCount = 0;
     badges.forEach(function(b) {
       var ts = parseInt(b.dataset.ts);
       var txt = formatCountdown(ts);
       var txtEl = b.querySelector('.cd-text');
       if (txtEl) txtEl.textContent = txt;
-      if (ts <= Date.now()) { b.classList.add('live'); liveCount++; }
+      if (ts <= nowTs) { b.classList.add('live'); }
       else { b.classList.remove('live'); }
     });
-  }, 30000);
+    // If any show has ended (or is no longer "today"), re-render to drop it
+    for (var i = 0; i < events.length; i++) {
+      if (!cunIsVisible(events[i], nowTs)) { renderComingUpNext(); return; }
+    }
+  }, 15000);
 
   // Start auto-slide
   startComingUpAutoSlide(row);
