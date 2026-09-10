@@ -723,6 +723,22 @@ function isMatureChannel(channel) {
 function renderLiveChannels() {
   const grid = document.getElementById('liveGrid');
   if (!grid) return;
+
+  // While searching: hide category chips + Coming Up Next so ONLY
+  // the matching channels are visible. Restore them when search is cleared.
+  const hasQuery = (liveSearchQuery || '').trim().length > 0;
+  const chipsEl = document.getElementById('liveCategoryChips');
+  const cunSection = document.getElementById('comingUpSection');
+  if (chipsEl) chipsEl.style.display = hasQuery ? 'none' : '';
+  if (cunSection) {
+    if (hasQuery) {
+      cunSection.style.display = 'none';
+    } else {
+      // Restore correct visibility based on today's events
+      renderComingUpNext();
+    }
+  }
+
   const channels = Array.isArray(liveChannels) ? liveChannels : [];
   let displayChannels = channels;
   if (!matureUnlocked) displayChannels = channels.filter(c => !isMatureChannel(c));
@@ -1213,9 +1229,16 @@ function initSearch() {
     }
   }
 
+  // While searching: hide Coming Up Next + category chips, show only matches
+  function updateSearchMode() {
+    var searching = !!(liveSearchQuery && liveSearchQuery.trim().length > 0);
+    document.body.classList.toggle('searching', searching);
+  }
+
   searchInput.addEventListener('input', (e) => {
     liveSearchQuery = e.target.value;
     updateClearBtn();
+    updateSearchMode();
     renderLiveChannels();
   });
 
@@ -1224,6 +1247,7 @@ function initSearch() {
       searchInput.value = '';
       liveSearchQuery = '';
       updateClearBtn();
+      updateSearchMode();
       renderLiveChannels();
       searchInput.blur();
     }
@@ -1234,6 +1258,7 @@ function initSearch() {
       searchInput.value = '';
       liveSearchQuery = '';
       updateClearBtn();
+      updateSearchMode();
       renderLiveChannels();
       searchInput.focus();
     });
