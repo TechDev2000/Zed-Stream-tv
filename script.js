@@ -669,6 +669,11 @@ sidebarOverlay.addEventListener('click', closeSidebar);
 
 /* ===== LIVE TV SYSTEM ===== */
 let liveChannels = [];
+let comingUpNext = [];
+let comingUpTimer = null;
+let comingUpAutoTimer = null;
+let comingUpAutoPaused = false;
+let comingUpAutoRow = null;
 let liveCategories = [];
 let activeLiveCategory = 'all';
 let liveSearchQuery = '';
@@ -813,7 +818,14 @@ async function loadLiveTV() {
     hideChannelsPreloader();
     return;
   }
-  liveChannels = result.data || [];
+  if (Array.isArray(result.data)) {
+    liveChannels = result.data;
+    comingUpNext = [];
+  } else {
+    liveChannels = result.data.channels || result.data.liveChannels || [];
+    comingUpNext = result.data.comingUpNext || [];
+  }
+  renderComingUpNext();
   liveCategories = getLiveCategories(liveChannels);
   if (!matureUnlocked && (activeLiveCategory === 'mature' || activeLiveCategory === '18+')) activeLiveCategory = 'all';
   renderLiveCategoryChips();
@@ -837,6 +849,179 @@ async function playLiveChannel(channel) {
   const link = channel.link || channel.link2 || '';
   if (!link) { showToast('No Link', 'This channel has no link configured.', 'error'); return; }
   window.location.href = link;
+}
+
+
+/* ===== COMING UP NEXT — AUTO SLIDE ===== */
+function cunSmoothScrollTo(row, target, dur) {
+  if (!dur) dur = 500;
+  var start = row.scrollLeft;
+  var dist = target - start;
+  if (dist === 0) return;
+  var t0 = null;
+  function stepFn(ts) {
+    if (t0 === null) t0 = ts;
+    var p = (ts - t0) / dur;
+    if (p > 1) p = 1;
+    var eased = 1 - Math.pow(1 - p, 3);
+    row.scrollLeft = Math.round(start + dist * eased);
+    if (p < 1 && comingUpAutoRow === row) requestAnimationFrame(stepFn);
+  }
+  if (window.requestAnimationFrame) requestAnimationFrame(stepFn);
+  else row.scrollLeft = target;
+}
+
+function stopComingUpAutoSlide() {
+  if (comingUpAutoTimer) { clearInterval(comingUpAutoTimer); comingUpAutoTimer = null; }
+  comingUpAutoRow = null;
+}
+
+function startComingUpAutoSlide(row) {
+  stopComingUpAutoSlide();
+  comingUpAutoRow = row;
+  comingUpAutoPaused = false;
+
+  var pause = function() { comingUpAutoPaused = true; };
+  var resume = function() { setTimeout(function() { comingUpAutoPaused = false; }, 3000); };
+
+  // Pause while user is interacting / hovering
+  row.addEventListener('touchstart', pause, { passive: true });
+  row.addEventListener('touchmove', pause, { passive: true });
+  row.addEventListener('touchend', resume, { passive: true });
+  row.addEventListener('touchcancel', resume, { passive: true });
+  row.addEventListener('mousedown', pause);
+  row.addEventListener('mouseup', resume);
+  row.addEventListener('mouseenter', pause);
+  row.addEventListener('mouseleave', resume);
+
+  comingUpAutoTimer = setInterval(function() {
+    if (!comingUpAutoRow || comingUpAutoPaused) return;
+    var section = document.getElementById('comingUpSection');
+    if (!section || section.style.display === 'none') return;
+    if (document.hidden) return;
+    var card = comingUpAutoRow.querySelector('.coming-up-card');
+    if (!card) return;
+    var step = card.offsetWidth + 8; // card width + gap
+    var maxScroll = comingUpAutoRow.scrollWidth - comingUpAutoRow.clientWidth;
+    if (maxScroll <= 0) return;
+
+    var atEnd = comingUpAutoRow.scrollLeft >= maxScroll - 4;
+
+    if (atEnd) {
+      // Finished showing all shows — smoothly return to the start, then repeat
+      cunSmoothScrollTo(comingUpAutoRow, 0, 900);
+    } else {
+      // Advance one card so every show is shown
+      var next = comingUpAutoRow.scrollLeft + step;
+      if (next > maxScroll) next = maxScroll;
+      cunSmoothScrollTo(comingUpAutoRow, next);
+    }
+  }, 3500);
+}
+
+/* ===== COMING UP NEXT ===== */
+function parseEventTime(t) {
+  if (!t) return NaN;
+  // Handle both "2026-09-10T18:17" and "2026-09-10 18:17" formats
+  var ts = new Date(String(t).replace(' ', 'T')).getTime();
+  return ts;
+}
+
+function formatCountdown(ts) {
+  var diff = ts - Date.now();
+  if (isNaN(ts)) return '';
+  if (diff <= 0) return 'Live now';
+  var mins = Math.floor(diff / 60000);
+  var d = Math.floor(mins / 1440);
+  var h = Math.floor((mins % 1440) / 60);
+  var m = mins % 60;
+  if (d > 0) return 'In ' + d + 'd ' + h + 'h';
+  if (h > 0) return 'In ' + h + 'h ' + m + 'm';
+  if (m > 0) return 'In ' + m + 'm';
+  return 'Starting...';
+}
+
+function formatEventTime(ts) {
+  try {
+    return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  } catch (e) { return ''; }
+}
+
+function renderComingUpNext() {
+  var section = document.getElementById('comingUpSection');
+  var row = document.getElementById('comingUpRow');
+  if (!section || !row) return;
+
+  // Stop old ticker + auto-slide
+  if (comingUpTimer) { clearInterval(comingUpTimer); comingUpTimer = null; }
+  stopComingUpAutoSlide();
+
+  var now = Date.now();
+  var THREE_HOURS = 3 * 60 * 60 * 1000;
+  var events = (comingUpNext || [])
+    .map(function(ev) { ev._ts = parseEventTime(ev.time); return ev; })
+    .filter(function(ev) { return !isNaN(ev._ts) && ev._ts > now - THREE_HOURS; })
+    .sort(function(a, b) { return a._ts - b._ts; });
+
+  if (events.length === 0) {
+    section.style.display = 'none';
+    row.innerHTML = '';
+    return;
+  }
+
+  section.style.display = 'block';
+  row.innerHTML = events.map(function(ev, i) {
+    var isLive = ev._ts <= now;
+    var imgHtml = ev.img
+      ? '<img src="' + ev.img + '" alt="' + (ev.title || 'Upcoming') + '" loading="lazy" onerror="this.style.display=\'none\'">'
+      : '<svg width="32" height="32" viewBox="0 0 24 24" fill="rgba(255,255,255,0.15)"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"></path></svg>';
+    return '' +
+    '<div class="coming-up-card" data-cunidx="' + i + '">' +
+      '<div class="coming-up-img-wrap">' +
+        imgHtml +
+        '<div class="coming-up-countdown' + (isLive ? ' live' : '') + '" data-ts="' + ev._ts + '"><span class="dot"></span><span class="cd-text">' + formatCountdown(ev._ts) + '</span></div>' +
+        (ev.channel ? '<div class="coming-up-channel-chip">' + ev.channel + '</div>' : '') +
+      '</div>' +
+      '<div class="coming-up-info">' +
+        '<div class="coming-up-name">' + (ev.title || 'Upcoming event') + '</div>' +
+        '<div class="coming-up-meta">' +
+          '<svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"></path></svg>' +
+          '<span>' + formatEventTime(ev._ts) + '</span>' +
+        '</div>' +
+        (ev.note ? '<span class="coming-up-note">' + ev.note + '</span>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  // Click handling — play link if present, otherwise show event info
+  row.querySelectorAll('.coming-up-card').forEach(function(el) {
+    el.addEventListener('click', async function() {
+      var ev = events[parseInt(el.dataset.cunidx)];
+      if (!ev) return;
+      if (ev.link) {
+        await playLiveChannel({ name: ev.title, link: ev.link, category: ev.channel });
+      } else {
+        showToast(ev.title || 'Upcoming', formatCountdown(ev._ts) + ' — ' + formatEventTime(ev._ts) + (ev.channel ? ' on ' + ev.channel : ''), 'info');
+      }
+    });
+  });
+
+  // Live countdown ticker (every 30s)
+  comingUpTimer = setInterval(function() {
+    var badges = row.querySelectorAll('.coming-up-countdown');
+    var liveCount = 0;
+    badges.forEach(function(b) {
+      var ts = parseInt(b.dataset.ts);
+      var txt = formatCountdown(ts);
+      var txtEl = b.querySelector('.cd-text');
+      if (txtEl) txtEl.textContent = txt;
+      if (ts <= Date.now()) { b.classList.add('live'); liveCount++; }
+      else { b.classList.remove('live'); }
+    });
+  }, 30000);
+
+  // Start auto-slide
+  startComingUpAutoSlide(row);
 }
 
 /* ===== PIN SYSTEM ===== */
