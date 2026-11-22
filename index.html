@@ -103,6 +103,21 @@
   </div>
 </div>
 
+<!-- Event Channels Modal -->
+<div class="confirm-modal-overlay" id="eventChannelsOverlay">
+  <div class="confirm-modal">
+    <div class="confirm-modal-icon">
+      <svg viewBox="0 0 24 24"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"></path></svg>
+    </div>
+    <div class="confirm-modal-title" id="eventChannelsTitle">Watch Live</div>
+    <div class="confirm-modal-desc" id="eventChannelsDesc" style="margin-bottom:14px;">Available on these channels:</div>
+    <div id="eventChannelsList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
+    <div class="confirm-modal-actions">
+      <button class="pin-btn secondary" id="eventChannelsClose">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Device Detection Popup -->
 <div class="device-popup-overlay" id="devicePopupOverlay">
   <div class="device-popup">
@@ -166,6 +181,10 @@
       <svg viewBox="0 0 24 24"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"></path></svg>
       Live TV
     </div>
+    <div class="sidebar-nav-item" id="navSports">
+      <svg viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"></path></svg>
+      Sports
+    </div>
     <div class="sidebar-nav-item" id="navProfile" style="display:none;">
       <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
       My Profile
@@ -216,6 +235,31 @@
 
   <div class="live-category-chips" id="liveCategoryChips"></div>
   <div class="live-grid" id="liveGrid"></div>
+</div>
+
+<!-- Sports Page -->
+<div class="sports-page" id="sportsPage">
+  <button class="back-btn" id="sportsBackBtn">
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+    Back to Channels
+  </button>
+
+  <div class="sports-header">
+    <div class="sports-header-icon">
+      <svg viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"></path></svg>
+    </div>
+    <div class="sports-header-info">
+      <div class="sports-title">Sports Center</div>
+      <div class="sports-subtitle" id="sportsUpdated">Live scores &amp; upcoming fixtures</div>
+    </div>
+    <button class="back-btn" id="sportsRefreshBtn" style="margin:0 0 0 auto;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"></path></svg>
+      Refresh
+    </button>
+  </div>
+
+  <div class="sports-chips" id="sportsChips"></div>
+  <div class="sports-grid" id="sportsGrid"></div>
 </div>
 
 <!-- Profile Page -->

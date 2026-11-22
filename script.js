@@ -80,6 +80,7 @@ if (window.NodeList && !NodeList.prototype.forEach) {
 const PASTEFY_API_KEY = 'mEQy1tvH7DTSuqOW0d8R2duwhwxZVYz0F0kfzRMijbypfrNRUUSTtnxj9AtN';
 const SUBSCRIPTION_PASTE_ID = 'ePhfxmdW';
 const LIVE_TV_API = 'https://pastefy.app/sh92Ia4P/raw';
+const SPORTS_CATALOG_API = 'https://api.parky.watch/api/sports/catalog';
 const DEVICE_STORAGE_KEY = 'zedstream_device_id';
 const SUB_POLL_INTERVAL = 30000;
 
@@ -492,7 +493,10 @@ function showDevicePopup(otherDeviceId, limit) {
 
 /* ===== AUTH FLOW ===== */
 function showLogin() {
+  stopSportsTicker();
   document.body.classList.remove('profile-active');
+  document.body.classList.remove('sports-active');
+  document.getElementById('sportsPage').classList.remove('active');
   document.getElementById('loginOverlay').style.display = 'flex';
   const btn = document.getElementById('loginBtn');
   if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
@@ -677,6 +681,10 @@ let comingUpAutoRow = null;
 let liveCategories = [];
 let activeLiveCategory = 'all';
 let liveSearchQuery = '';
+let sportsCatalogData = null;
+let activeSportFilter = 'all';
+let sportsTicker = null;
+let sportsTickCount = 0;
 
 async function fetchLiveChannels() {
   try {
@@ -810,6 +818,58 @@ function hideChannelsPreloader() {
   if (el) el.classList.remove('active');
 }
 
+/* ===== SPORTS CATALOG (Coming Up Next) ===== */
+async function fetchSportsCatalog() {
+  try {
+    const r = await fetch(SPORTS_CATALOG_API, { cache: 'no-store' });
+    if (!r.ok) return { error: 'HTTP ' + r.status };
+    const data = await r.json();
+    return { data };
+  } catch (e) {
+    return { error: e.message || 'Network error' };
+  }
+}
+
+function mapSportsCatalog(catalog) {
+  var now = Date.now();
+  var MAX_AHEAD = 7 * 24 * 60 * 60 * 1000; // show events up to 7 days ahead
+  var sportNames = {};
+  (catalog.sports || []).forEach(function(s) { sportNames[s.id] = s.name; });
+  return (catalog.matches || [])
+    .map(function(m) {
+      // Normalize timestamp to milliseconds (handle both sec and ms unix timestamps)
+      var ts = (typeof m.date === 'number' && m.date > 0 && m.date < 1e12) ? m.date * 1000 : m.date;
+      return { m: m, ts: ts };
+    })
+    .filter(function(x) {
+      if (!x.m || !x.ts) return false;
+      if (x.ts <= now) return false;                        // already started — not "coming up"
+      if (x.ts > now + MAX_AHEAD) return false;             // too far ahead
+      if (x.m.game && x.m.game.state === 'post') return false; // finished
+      return true;
+    })
+    .sort(function(a, b) { return a.ts - b.ts; })
+    .slice(0, 20)
+    .map(function(x) {
+      var m = x.m;
+      var ev = {
+        title: m.title || 'Upcoming event',
+        time: new Date(x.ts).toISOString(),
+        channel: (m.game && m.game.league) || sportNames[m.category] || m.category || 'Sports'
+      };
+      if (m.game) {
+        ev.home = (m.game.home && (m.game.home.name || m.game.home.team)) || '';
+        ev.away = (m.game.away && (m.game.away.name || m.game.away.team)) || '';
+      }
+      if (m.popular) {
+        ev.note = 'Popular';
+      } else if (m.channels && m.channels.length) {
+        ev.note = m.channels[0];
+      }
+      return ev;
+    });
+}
+
 async function loadLiveTV() {
   showChannelsPreloader();
   const grid = document.getElementById('liveGrid');
@@ -819,6 +879,7 @@ async function loadLiveTV() {
       grid.innerHTML += `<div class="skeleton"><div class="skeleton-img" style="aspect-ratio:16/9;"></div><div class="skeleton-text"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>`;
     }
   }
+  // Fetch channels FIRST so they render immediately — never block them on the sports API
   const result = await fetchLiveChannels();
   if (result.error) {
     if (grid) {
@@ -834,19 +895,32 @@ async function loadLiveTV() {
     hideChannelsPreloader();
     return;
   }
+  let staticComingUp = [];
   if (Array.isArray(result.data)) {
     liveChannels = result.data;
-    comingUpNext = [];
   } else {
     liveChannels = result.data.channels || result.data.liveChannels || [];
-    comingUpNext = result.data.comingUpNext || [];
+    staticComingUp = result.data.comingUpNext || [];
   }
+  // Show any static "coming up" events from the channels JSON right away
+  comingUpNext = staticComingUp;
   renderComingUpNext();
   liveCategories = getLiveCategories(liveChannels);
   if (!matureUnlocked && (activeLiveCategory === 'mature' || activeLiveCategory === '18+')) activeLiveCategory = 'all';
   renderLiveCategoryChips();
   renderLiveChannels();
   hideChannelsPreloader();
+
+  // Sports catalog loads in the BACKGROUND and fills "Coming Up Next" when ready
+  // (this also stops a slow/down sports API from delaying or blanking the channel grid)
+  fetchSportsCatalog().then(function (sportsResult) {
+    if (sportsResult.error || !sportsResult.data || !Array.isArray(sportsResult.data.matches)) return;
+    sportsCatalogData = sportsResult.data;
+    if (!Array.isArray(sportsCatalogData.sports)) sportsCatalogData.sports = [];
+    const sportsEvents = mapSportsCatalog(sportsResult.data);
+    comingUpNext = sportsEvents.concat(staticComingUp);
+    renderComingUpNext();
+  }).catch(function () { /* sports feed unavailable — channels still work */ });
 }
 
 async function playLiveChannel(channel) {
@@ -957,6 +1031,17 @@ function formatCountdown(ts) {
   return 'Starting...';
 }
 
+function formatEventDate(ts) {
+  try {
+    var d = new Date(ts), now = new Date();
+    var startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    var day = 24 * 60 * 60 * 1000;
+    if (ts >= startToday && ts < startToday + day) return 'Today';
+    if (ts >= startToday + day && ts < startToday + 2 * day) return 'Tomorrow';
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch (e) { return ''; }
+}
+
 function formatEventTime(ts) {
   try {
     return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -972,8 +1057,9 @@ function cunIsSameLocalDay(ts, refTs) {
 // A show "ends" 3 hours after its start time, then it removes itself.
 function cunIsVisible(ev, nowTs) {
   var THREE_HOURS = 3 * 60 * 60 * 1000;
+  var FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000;
   if (isNaN(ev._ts)) return false;
-  if (!cunIsSameLocalDay(ev._ts, nowTs)) return false; // today only
+  if (ev._ts > nowTs + FORTY_EIGHT_HOURS) return false; // too far in the future
   if (nowTs > ev._ts + THREE_HOURS) return false;      // ended 3h ago
   return true;
 }
@@ -991,7 +1077,7 @@ function renderComingUpNext() {
   var THREE_HOURS = 3 * 60 * 60 * 1000;
   var events = (comingUpNext || [])
     .map(function(ev) { ev._ts = parseEventTime(ev.time); return ev; })
-    .filter(function(ev) { return cunIsVisible(ev, now); })
+    .filter(function(ev) { return !isNaN(ev._ts) && ev._ts > now; })
     .sort(function(a, b) { return a._ts - b._ts; });
 
   if (events.length === 0) {
@@ -1002,24 +1088,18 @@ function renderComingUpNext() {
 
   section.style.display = 'block';
   row.innerHTML = events.map(function(ev, i) {
-    var isLive = ev._ts <= now;
-    var imgHtml = ev.img
-      ? '<img src="' + ev.img + '" alt="' + (ev.title || 'Upcoming') + '" loading="lazy" onerror="this.style.display=\'none\'">'
-      : '<svg width="32" height="32" viewBox="0 0 24 24" fill="rgba(255,255,255,0.15)"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"></path></svg>';
+    var vs = (ev.home && ev.away) ? (ev.home + ' vs ' + ev.away) : (ev.title || 'Upcoming event');
     return '' +
     '<div class="coming-up-card" data-cunidx="' + i + '">' +
-      '<div class="coming-up-img-wrap">' +
-        imgHtml +
-        '<div class="coming-up-countdown' + (isLive ? ' live' : '') + '" data-ts="' + ev._ts + '"><span class="dot"></span><span class="cd-text">' + formatCountdown(ev._ts) + '</span></div>' +
-        (ev.channel ? '<div class="coming-up-channel-chip">' + ev.channel + '</div>' : '') +
-      '</div>' +
       '<div class="coming-up-info">' +
-        '<div class="coming-up-name">' + (ev.title || 'Upcoming event') + '</div>' +
+        '<div class="coming-up-countdown" data-ts="' + ev._ts + '"><span class="cd-text">' + formatCountdown(ev._ts) + '</span></div>' +
+        '<div class="coming-up-name">' + vs + '</div>' +
         '<div class="coming-up-meta">' +
           '<svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"></path></svg>' +
+          '<span>' + formatEventDate(ev._ts) + '</span>' +
+          '<span>&middot;</span>' +
           '<span>' + formatEventTime(ev._ts) + '</span>' +
         '</div>' +
-        (ev.note ? '<span class="coming-up-note">' + ev.note + '</span>' : '') +
       '</div>' +
     '</div>';
   }).join('');
@@ -1037,8 +1117,7 @@ function renderComingUpNext() {
     });
   });
 
-  // Live countdown ticker (every 15s) — flips badges to LIVE at showtime
-  // and auto-removes shows that ended (3 hours after start)
+  // Countdown ticker (every 15s) — updates countdown text and drops shows once they start
   comingUpTimer = setInterval(function() {
     var nowTs = Date.now();
     var badges = row.querySelectorAll('.coming-up-countdown');
@@ -1047,17 +1126,308 @@ function renderComingUpNext() {
       var txt = formatCountdown(ts);
       var txtEl = b.querySelector('.cd-text');
       if (txtEl) txtEl.textContent = txt;
-      if (ts <= nowTs) { b.classList.add('live'); }
-      else { b.classList.remove('live'); }
     });
-    // If any show has ended (or is no longer "today"), re-render to drop it
+    // If any show has started, re-render so it leaves the "Coming Up Next" list
     for (var i = 0; i < events.length; i++) {
-      if (!cunIsVisible(events[i], nowTs)) { renderComingUpNext(); return; }
+      if (events[i]._ts <= nowTs) { renderComingUpNext(); return; }
     }
   }, 15000);
 
   // Start auto-slide
   startComingUpAutoSlide(row);
+}
+
+/* ===== SPORTS SECTION ===== */
+function stopSportsTicker() {
+  if (sportsTicker) { clearInterval(sportsTicker); sportsTicker = null; }
+}
+
+function startSportsTicker() {
+  stopSportsTicker();
+  sportsTickCount = 0;
+  sportsTicker = setInterval(() => {
+    const page = document.getElementById('sportsPage');
+    if (!page || !page.classList.contains('active')) return;
+    if (document.hidden) return;
+    updateSportsCountdowns();
+    sportsTickCount++;
+    if (sportsTickCount % 4 === 0 && sportsCatalogData) {
+      // Refresh scores/fixtures every ~60s while viewing
+      renderSportsMatches();
+      const upd = document.getElementById('sportsUpdated');
+      if (upd) upd.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' — auto-refreshing';
+    }
+  }, 15000);
+}
+
+function sportBadgeClass(id) {
+  id = String(id || '').toLowerCase();
+  if (id.indexOf('american') !== -1 || id.indexOf('nfl') !== -1) return 'american-football';
+  if (id.indexOf('football') !== -1 || id.indexOf('soccer') !== -1) return 'football';
+  if (id.indexOf('basketball') !== -1 || id.indexOf('nba') !== -1) return 'basketball';
+  if (id.indexOf('tennis') !== -1) return 'tennis';
+  if (id.indexOf('cricket') !== -1) return 'cricket';
+  if (id.indexOf('baseball') !== -1 || id.indexOf('mlb') !== -1) return 'baseball';
+  if (id.indexOf('hockey') !== -1 || id.indexOf('nhl') !== -1) return 'hockey';
+  if (id.indexOf('rugby') !== -1) return 'rugby';
+  if (id.indexOf('boxing') !== -1 || id.indexOf('mma') !== -1 || id.indexOf('fight') !== -1 || id.indexOf('ufc') !== -1) return 'combat';
+  if (id.indexOf('golf') !== -1) return 'golf';
+  if (id.indexOf('volleyball') !== -1) return 'volleyball';
+  if (id.indexOf('f1') !== -1 || id.indexOf('racing') !== -1 || id.indexOf('moto') !== -1) return 'motorsport';
+  return 'other';
+}
+
+function renderSportsChips() {
+  const container = document.getElementById('sportsChips');
+  if (!container) return;
+  const sports = (sportsCatalogData && sportsCatalogData.sports) || [];
+  let html = '<button class="sport-chip ' + (activeSportFilter === 'all' ? 'active' : '') + '" data-sport="all"><span class="dot"></span>All Sports</button>';
+  html += sports.map(s => {
+    const name = s.name || s.id;
+    return '<button class="sport-chip ' + sportBadgeClass(s.id) + (s.id === activeSportFilter ? ' active' : '') + '" data-sport="' + s.id + '"><span class="dot"></span>' + name + '</button>';
+  }).join('');
+  container.innerHTML = html;
+  container.querySelectorAll('.sport-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      activeSportFilter = chip.dataset.sport;
+      renderSportsChips();
+      renderSportsMatches();
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function teamBadgeHtml(team, fallbackName) {
+  var name = (team && (team.name || team.team || team.title)) || fallbackName;
+  var logo = team && (team.logo || team.badge || team.crest || team.image || team.icon || team.img);
+  var initials = String(name).split(/\s+/).map(function(w) { return w ? w.charAt(0) : ''; }).join('').slice(0, 3).toUpperCase() || '?';
+  var img = logo ? '<img src="' + escapeHtml(logo) + '" alt="' + escapeHtml(name) + '" loading="lazy" onerror="this.remove()">' : '';
+  return '<div class="match-team-badge">' + img + '<span class="match-team-initials">' + escapeHtml(initials) + '</span></div>';
+}
+
+/* ===== SPORTS SECTION — helper: build one match card's inner HTML ===== */
+function matchCardHtml(m) {
+  const now = Date.now();
+  const sportNames = {};
+  ((sportsCatalogData && sportsCatalogData.sports) || []).forEach(s => { sportNames[s.id] = s.name; });
+  const isLive = m.game && m.game.state === 'in';
+  const sportName = sportNames[m.category] || m.category || 'Sports';
+  const badgeCls = sportBadgeClass(m.category);
+  const league = (m.game && m.game.league) || '';
+  const home = m.game && m.game.home;
+  const away = m.game && m.game.away;
+  const detail = (m.game && m.game.detail) || '';
+  const hasTeams = !!(home || away);
+  const channels = (m.channels && m.channels.length) ? m.channels : null;
+  const poster = m.poster || '';
+  const countdownCls = 'coming-up-countdown' + (isLive || m.date <= now ? ' live' : '');
+
+  let inner;
+  if (hasTeams) {
+    const homeScore = home && home.score != null ? home.score : '0';
+    const awayScore = away && away.score != null ? away.score : '0';
+    const statusHtml = isLive
+      ? '<div class="match-score-value live">' + escapeHtml(String(homeScore)) + '&nbsp;-&nbsp;' + escapeHtml(String(awayScore)) + '</div>' +
+        (detail ? '<div class="match-score-detail">' + escapeHtml(detail) + '</div>' : '<div class="match-score-detail">Live</div>')
+      : '<div class="match-score-vs">VS</div>' +
+        '<div class="match-score-detail">' + formatEventTime(m.date) + '</div>';
+
+    inner =
+      '<div class="match-status-row">' +
+        '<span class="match-league">' + escapeHtml(league || sportName) + '</span>' +
+        '<span class="' + countdownCls + '" data-ts="' + m.date + '"><span class="dot"></span><span class="cd-text">' + formatCountdown(m.date) + '</span></span>' +
+      '</div>' +
+      '<div class="match-teams">' +
+        '<div class="match-team">' +
+          teamBadgeHtml(home, 'Home') +
+          '<div class="match-team-name">' + escapeHtml((home && (home.name || home.team)) || 'TBD') + '</div>' +
+        '</div>' +
+        '<div class="match-score">' + statusHtml + '</div>' +
+        '<div class="match-team">' +
+          teamBadgeHtml(away, 'Away') +
+          '<div class="match-team-name">' + escapeHtml((away && (away.name || away.team)) || 'TBD') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="match-meta">' +
+        '<span class="sport-badge ' + badgeCls + '">' + escapeHtml(sportName) + '</span>' +
+        (channels ? channels.map(c => {
+          const cn = (typeof c === 'string') ? c : (c.name || c.channel || '');
+          return cn ? '<span class="coming-up-note">' + escapeHtml(cn) + '</span>' : '';
+        }).join('') : '') +
+      '</div>';
+
+    if (poster) {
+      inner = '<img class="match-poster-bg" src="' + escapeHtml(poster) + '" alt="" loading="lazy" onerror="this.remove()">' + inner;
+    }
+  } else {
+    const imgHtml = poster
+      ? '<img src="' + escapeHtml(poster) + '" alt="" loading="lazy" onerror="this.remove()">'
+      : '<svg width="32" height="32" viewBox="0 0 24 24" fill="rgba(255,255,255,0.15)"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"></path></svg>';
+    inner =
+      '<div class="sport-card-img-wrap">' + imgHtml +
+        '<span class="' + countdownCls + '" data-ts="' + m.date + '"><span class="dot"></span><span class="cd-text">' + formatCountdown(m.date) + '</span></span>' +
+        '<div class="sport-badge ' + badgeCls + '">' + escapeHtml(sportName) + '</div>' +
+        (league ? '<div class="coming-up-channel-chip">' + escapeHtml(league) + '</div>' : '') +
+      '</div>' +
+      '<div class="sport-card-info"><div class="sport-card-title">' + escapeHtml(m.title || 'Upcoming match') + '</div></div>';
+  }
+  return inner;
+}
+
+/* ===== SPORTS SECTION — separated groups: LIVE / TODAY / UPCOMING ===== */
+function renderSportsMatches() {
+  const grid = document.getElementById('sportsGrid');
+  if (!grid) return;
+
+  const now = Date.now();
+
+  // Base filter: finished or >6h old matches are dropped
+  const matches = ((sportsCatalogData && sportsCatalogData.matches) || []).filter(m => {
+    if (!m || !m.date) return false;
+    if (m.game && m.game.state === 'post') return false;
+    if (m.date < now - 6 * 60 * 60 * 1000) return false;
+    return true;
+  });
+
+  // Apply sport chip filter
+  let list = matches;
+  if (activeSportFilter !== 'all') list = list.filter(m => m.category === activeSportFilter);
+
+  // Split into three groups
+  const startToday = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
+  const endToday = startToday + 24 * 60 * 60 * 1000;
+
+  const live = [];
+  const today = [];
+  const upcoming = [];
+
+  list.forEach(m => {
+    if (m.game && m.game.state === 'in') live.push(m);
+    else if (m.date >= startToday && m.date < endToday) today.push(m);
+    else upcoming.push(m);
+  });
+
+  // Sort: live by start time (oldest first), today/upcoming by kickoff time
+  live.sort((a, b) => a.date - b.date);
+  today.sort((a, b) => a.date - b.date);
+  upcoming.sort((a, b) => a.date - b.date);
+
+  if (list.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="empty-state-icon">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="var(--text-quaternary)"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"></path></svg>
+        </div>
+        <div class="empty-state-title">No Matches Found</div>
+        <div class="empty-state-desc">No live or upcoming matches for this sport right now. Try another category or check back later.</div>
+      </div>`;
+    return;
+  }
+
+  const sectionHeader = (color, title, count) =>
+    '<div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:14px 0 4px;">' +
+      '<span style="width:10px;height:10px;border-radius:50%;background:' + color + ';box-shadow:0 0 10px ' + color + ';flex-shrink:0;"></span>' +
+      '<span style="font-family:var(--font-display);font-size:16px;font-weight:700;letter-spacing:-0.01em;">' + title + '</span>' +
+      '<span style="font-size:11px;font-weight:700;color:var(--text-quaternary);background:var(--surface-2);padding:2px 10px;border-radius:9999px;">' + count + '</span>' +
+    '</div>';
+
+  const emptyNote = (msg) =>
+    '<div style="grid-column:1/-1;font-size:12px;color:var(--text-quaternary);padding:6px 4px 10px;">' + msg + '</div>';
+
+  let html = '';
+
+  // 1. LIVE NOW — first, always on top
+  html += sectionHeader('#ef4444', 'Live Now', live.length);
+  html += live.length
+    ? live.map(m => '<div class="sport-card match-card">' + matchCardHtml(m) + '</div>').join('')
+    : emptyNote('No matches live right now.');
+
+  // 2. PLAYING TODAY — scheduled for today, not started yet
+  html += sectionHeader('#f59e0b', 'Playing Today', today.length);
+  html += today.length
+    ? today.map(m => '<div class="sport-card match-card">' + matchCardHtml(m) + '</div>').join('')
+    : emptyNote('No more matches scheduled today.');
+
+  // 3. UPCOMING — future dates
+  if (upcoming.length) {
+    html += sectionHeader('#3b82f6', 'Upcoming', upcoming.length);
+    html += upcoming.map(m => '<div class="sport-card match-card">' + matchCardHtml(m) + '</div>').join('');
+  }
+
+  grid.innerHTML = html;
+
+  // Attach click handlers (event channels modal)
+  const allMatches = live.concat(today, upcoming);
+  grid.querySelectorAll('.sport-card').forEach((el, idx) => {
+    el.addEventListener('click', () => {
+      const m = allMatches[idx];
+      if (!m) return;
+      showEventChannels(m);
+    });
+  });
+}
+
+function updateSportsCountdowns() {
+  document.querySelectorAll('#sportsGrid .coming-up-countdown').forEach(b => {
+    const ts = parseInt(b.dataset.ts);
+    const txtEl = b.querySelector('.cd-text');
+    if (txtEl) txtEl.textContent = formatCountdown(ts);
+    b.classList.toggle('live', ts <= Date.now());
+  });
+}
+
+async function loadSportsSection(force) {
+  const grid = document.getElementById('sportsGrid');
+  if (sportsCatalogData && !force) {
+    renderSportsChips();
+    renderSportsMatches();
+    return;
+  }
+  if (grid) {
+    grid.innerHTML = '';
+    for (let i = 0; i < 8; i++) {
+      grid.innerHTML += '<div class="skeleton"><div class="skeleton-img" style="aspect-ratio:16/9;"></div><div class="skeleton-text"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div></div>';
+    }
+  }
+  const result = await fetchSportsCatalog();
+  if (result.error) {
+    if (grid) {
+      grid.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="var(--text-quaternary)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg>
+          </div>
+          <div class="empty-state-title">Failed to Load Sports</div>
+          <div class="empty-state-desc">${result.error}. Pull to retry or tap Refresh.</div>
+        </div>`;
+    }
+    return;
+  }
+  sportsCatalogData = result.data || { sports: [], matches: [] };
+  if (!Array.isArray(sportsCatalogData.sports)) sportsCatalogData.sports = [];
+  if (!Array.isArray(sportsCatalogData.matches)) sportsCatalogData.matches = [];
+  renderSportsChips();
+  renderSportsMatches();
+  const upd = document.getElementById('sportsUpdated');
+  if (upd) upd.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function showSportsPage() {
+  stopSportsTicker();
+  document.body.classList.remove('profile-active');
+  document.body.classList.add('sports-active');
+  document.getElementById('liveTVSection').style.display = 'none';
+  document.getElementById('profilePage').classList.remove('active');
+  document.getElementById('sportsPage').classList.add('active');
+  document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('navSports').classList.add('active');
+  loadSportsSection(false);
+  startSportsTicker();
 }
 
 /* ===== PIN SYSTEM ===== */
@@ -1265,8 +1635,83 @@ function initSearch() {
   }
 }
 
+/* ===== EVENT CHANNELS MODAL ===== */
+function showEventChannels(m) {
+  const overlay = document.getElementById('eventChannelsOverlay');
+  const titleEl = document.getElementById('eventChannelsTitle');
+  const listEl = document.getElementById('eventChannelsList');
+  const channels = (m.channels && m.channels.length) ? m.channels : null;
+
+  titleEl.textContent = m.title || 'Watch Live';
+
+  if (!channels) {
+    listEl.innerHTML = '<div style="font-size:13px;color:var(--text-tertiary);text-align:center;padding:8px;">No channel info available for this event.</div>';
+  } else {
+    listEl.innerHTML = channels.map((ch, i) => {
+      const name = (typeof ch === 'string') ? ch : (ch.name || ch.channel || 'Channel');
+      const found = findChannelInList(name);
+      const tag = found
+        ? '<span style="margin-left:auto;font-size:9px;font-weight:800;color:var(--success);background:rgba(34,197,94,0.12);padding:2px 8px;border-radius:9999px;letter-spacing:0.5px;">IN YOUR LIST</span>'
+        : '<span style="margin-left:auto;font-size:9px;font-weight:700;color:var(--text-quaternary);padding:2px 8px;">NOT IN LIST</span>';
+      return '<button class="pin-btn secondary" data-chidx="' + i + '" style="width:100%;display:flex;align-items:center;gap:10px;justify-content:flex-start;">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"></path></svg>' +
+        '<span>' + escapeHtml(name) + '</span>' + tag + '</button>';
+    }).join('');
+
+    listEl.querySelectorAll('button[data-chidx]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const chName = channels[parseInt(btn.dataset.chidx)];
+        const name = (typeof chName === 'string') ? chName : (chName.name || chName.channel || '');
+        overlay.classList.remove('active');
+        await playEventChannel(name, m);
+      });
+    });
+  }
+
+  document.getElementById('eventChannelsClose').onclick = () => overlay.classList.remove('active');
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('active'); });
+  overlay.classList.add('active');
+}
+
+function findChannelInList(name) {
+  // Searches the channel list loaded from LIVE_TV_API for the CORRECT match only.
+  // Loose/fuzzy matching here was causing the app to play the WRONG channel from the API list.
+  const q = (name || '').toLowerCase().trim();
+  if (!q || !Array.isArray(liveChannels)) return null;
+  // 1. Exact match (case-insensitive)
+  let ch = liveChannels.find(c => c.name && c.name.toLowerCase().trim() === q);
+  if (ch) return ch;
+  // 2. Only consider containment matches, and only if the query is meaningful (3+ chars)
+  if (q.length >= 3) {
+    const candidates = liveChannels.filter(c => {
+      const cn = (c.name || '').toLowerCase();
+      return cn.includes(q) || (cn.length > 3 && q.includes(cn));
+    });
+    // 3. If several channels could match, pick the closest (shortest) name —
+    //    e.g. query "ESPN" prefers "ESPN" over "ESPN 2"
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => (a.name || '').length - (b.name || '').length);
+      return candidates[0];
+    }
+  }
+  return null;
+}
+
+async function playEventChannel(channelName, match) {
+  if (!channelName) return;
+  const ch = findChannelInList(channelName);
+  if (ch) {
+    await playLiveChannel(ch);   // plays the stream link from YOUR channel list API
+  } else {
+    showToast('Channel Not Found', '"' + channelName + '" was not found in your channel list (LIVE_TV_API). Check the name in your channels JSON.', 'info');
+  }
+}
+
 /* ===== PROFILE PAGE ===== */
 function showProfilePage() {
+  stopSportsTicker();
+  document.body.classList.remove('sports-active');
+  document.getElementById('sportsPage').classList.remove('active');
   document.body.classList.add('profile-active');
   document.getElementById('liveTVSection').style.display = 'none';
   document.getElementById('profilePage').classList.add('active');
@@ -1276,9 +1721,12 @@ function showProfilePage() {
 }
 
 function showLiveTVPage() {
+  stopSportsTicker();
   document.body.classList.remove('profile-active');
+  document.body.classList.remove('sports-active');
   document.getElementById('liveTVSection').style.display = 'block';
   document.getElementById('profilePage').classList.remove('active');
+  document.getElementById('sportsPage').classList.remove('active');
   document.querySelectorAll('.sidebar-nav-item').forEach(el => el.classList.remove('active'));
   document.getElementById('navLiveTV').classList.add('active');
 }
@@ -1432,6 +1880,17 @@ async function removeDeviceFromSubscription(sub, devIdToRemove) {
 document.getElementById('navLiveTV').addEventListener('click', () => {
   closeSidebar();
   showLiveTVPage();
+});
+document.getElementById('navSports').addEventListener('click', () => {
+  closeSidebar();
+  showSportsPage();
+});
+document.getElementById('sportsBackBtn').addEventListener('click', showLiveTVPage);
+document.getElementById('sportsRefreshBtn').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  await loadSportsSection(true);
+  btn.disabled = false;
 });
 document.getElementById('navProfile').addEventListener('click', () => {
   closeSidebar();
@@ -1697,6 +2156,7 @@ function ptrCanActivate() {
   const section = document.getElementById('liveTVSection');
   if (!section || section.style.display === 'none') return false;
   if (document.body.classList.contains('profile-active')) return false;
+  if (document.body.classList.contains('sports-active')) return false;
   if (ptrOverlaysOpen()) return false;
   return (window.pageYOffset || document.documentElement.scrollTop || 0) <= 0;
 }
