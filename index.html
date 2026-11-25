@@ -7,15 +7,21 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-status-bar-style" content="black-translucent">
 <title>ZedStream — Live TV</title>
+<meta name="description" content="Live TV, sports scores, upcoming fixtures, and account management for ZedStream.">
+<meta property="og:title" content="ZedStream — Live TV">
+<meta property="og:description" content="Live TV, sports scores, upcoming fixtures, and account management for ZedStream.">
+<meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/shaka-player@4.12.6/dist/shaka-player.compiled.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.min.js"></script>
+<link rel="stylesheet" href="styles.css">
 
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -143,7 +149,7 @@
   </div>
 </div>
 
-<!-- Confirm Modal (styled replacement for confirm()) -->
+<!-- Confirm Modal -->
 <div class="confirm-modal-overlay" id="confirmModalOverlay">
   <div class="confirm-modal">
     <div class="confirm-modal-icon">
@@ -164,43 +170,92 @@
 <!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <div class="logo-text">Zed<span>Stream</span></div>
-    <button class="sidebar-close" id="sidebarClose">×</button>
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-mark">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
+      </div>
+      <div class="logo-text">Zed<span>Stream</span></div>
+    </div>
+    <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">
+      <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+    </button>
   </div>
-  <div class="sidebar-user" id="sidebarUser" style="display:none;">
-    <div class="sidebar-user-email" id="sidebarUserEmail">—</div>
-    <div class="sidebar-user-status" id="sidebarUserStatus">Free</div>
-  </div>
-  <div class="sidebar-device-info" id="sidebarDeviceInfo" style="display:none;">
-    <div class="sidebar-device-label">Device ID</div>
-    <div class="sidebar-device-id" id="sidebarDeviceId">—</div>
-  </div>
-  <nav class="sidebar-nav">
-    <div class="sidebar-nav-title">Menu</div>
-    <div class="sidebar-nav-item active" data-view="livetv" id="navLiveTV">
-      <svg viewBox="0 0 24 24"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"></path></svg>
-      Live TV
-    </div>
-    <div class="sidebar-nav-item" id="navSports">
-      <svg viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"></path></svg>
-      Sports
-    </div>
-    <div class="sidebar-nav-item" id="navProfile" style="display:none;">
-      <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
-      My Profile
-    </div>
-    <div class="sidebar-nav-item" id="sidebarLogoutBtn" style="display:none;">
-      <svg viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"></path></svg>
-      Log Out
-    </div>
 
-    <div class="sidebar-nav-title" style="margin-top:20px;">Parental Controls</div>
-    <button class="lock-18-btn locked" id="lock18SidebarBtn" style="width:100%;text-align:left;margin-top:4px;" onclick="handleLock18Click()">
-      <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"></path></svg>
+  <div class="sidebar-user" id="sidebarUser" style="display:none;">
+    <div class="sidebar-user-card">
+      <div class="sidebar-user-avatar" id="sidebarUserInitial">Z</div>
+      <div class="sidebar-user-meta">
+        <div class="sidebar-user-email" id="sidebarUserEmail">—</div>
+        <div class="sidebar-user-status" id="sidebarUserStatus">Free</div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="sidebar-nav-title">Browse</div>
+    <button type="button" class="sidebar-nav-item active" data-view="livetv" id="navLiveTV">
+      <span class="sidebar-nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"></path></svg>
+      </span>
+      Live TV
+    </button>
+    <button type="button" class="sidebar-nav-item" data-view="favorites" id="navFavorites">
+      <span class="sidebar-nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+      </span>
+      Favorites
+      <span class="sidebar-nav-count" id="sidebarFavCount"></span>
+    </button>
+    <button type="button" class="sidebar-nav-item" data-view="history" id="navHistory">
+      <span class="sidebar-nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"></path></svg>
+      </span>
+      History
+      <span class="sidebar-nav-count" id="sidebarHistoryCount"></span>
+    </button>
+    <button type="button" class="sidebar-nav-item" data-view="sports" id="navSports">
+      <span class="sidebar-nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"></path></svg>
+      </span>
+      Sports
+    </button>
+    <button type="button" class="sidebar-nav-item" data-view="profile" id="navProfile" style="display:none;">
+      <span class="sidebar-nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
+      </span>
+      My Profile
+    </button>
+
+    <div class="sidebar-nav-title">Parental Controls</div>
+    <button type="button" class="lock-18-btn locked" id="lock18SidebarBtn">
+      <span class="sidebar-nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"></path></svg>
+      </span>
       <span id="lock18SidebarText">18+ Locked</span>
+      <span class="lock-18-switch" aria-hidden="true"></span>
     </button>
   </nav>
-  <div class="sidebar-footer">ZedStream Live TV</div>
+
+  <div class="sidebar-bottom">
+    <div class="sidebar-device-info" id="sidebarDeviceInfo" style="display:none;">
+      <div class="sidebar-device-label">Device ID</div>
+      <div class="sidebar-device-row">
+        <div class="sidebar-device-id" id="sidebarDeviceId">—</div>
+        <button type="button" class="sidebar-device-copy" id="sidebarDeviceCopy" title="Copy Device ID">
+          <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <button type="button" class="sidebar-nav-item sidebar-logout-btn" id="sidebarLogoutBtn" style="display:none;">
+      <span class="sidebar-nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"></path></svg>
+      </span>
+      Log Out
+    </button>
+
+    <div class="sidebar-footer">ZedStream Live TV</div>
+  </div>
 </aside>
 
 <header>
@@ -222,19 +277,99 @@
 
   </div>
   <!-- Coming Up Next -->
-<div class="coming-up-section" id="comingUpSection" style="display:none;">
-  <div class="coming-up-header">
-    <div class="coming-up-title">
-      <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"></path></svg>
-      Coming Up Next
+  <div class="coming-up-section" id="comingUpSection" style="display:none;">
+    <div class="coming-up-header">
+      <div class="coming-up-title-group">
+        <div class="coming-up-title">
+          <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"></path></svg>
+          Coming Up Next
+        </div>
+        <span class="coming-up-subcount" id="comingUpCount"></span>
+      </div>
+      <div class="coming-up-actions">
+        <button type="button" class="coming-up-all-btn" id="comingUpViewSportsBtn">
+          All Sports
+          <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"></path></svg>
+        </button>
+        <div class="coming-up-nav">
+          <button type="button" class="coming-up-nav-btn" id="cunPrevBtn" aria-label="Scroll upcoming events left" title="Previous">
+            <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path></svg>
+          </button>
+          <button type="button" class="coming-up-nav-btn" id="cunNextBtn" aria-label="Scroll upcoming events right" title="Next">
+            <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></svg>
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="coming-up-hint">Swipe for more</div>
+    <div class="coming-up-row" id="comingUpRow"></div>
   </div>
-  <div class="coming-up-row" id="comingUpRow"></div>
+
+  <div class="live-filter-bar" id="liveFilterBar">
+    <div class="live-category-chips" id="liveCategoryChips" role="tablist" aria-label="Channel categories"></div>
+    <div class="live-filter-actions">
+      <div class="live-filter-count" id="liveFilterCount" aria-live="polite"></div>
+      <div class="live-view-toggle" id="liveViewToggle" role="group" aria-label="Channel layout view">
+        <button type="button" class="live-view-btn active" id="viewGridBtn" data-view="grid" aria-pressed="true" title="Card grid view" aria-label="Grid view">
+          <svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"></path></svg>
+          <span class="live-view-btn-label">Grid</span>
+        </button>
+        <button type="button" class="live-view-btn" id="viewListBtn" data-view="list" aria-pressed="false" title="Compact list view" aria-label="List view">
+          <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"></path></svg>
+          <span class="live-view-btn-label">List</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="live-grid" id="liveGrid"></div>
 </div>
 
-  <div class="live-category-chips" id="liveCategoryChips"></div>
-  <div class="live-grid" id="liveGrid"></div>
+<!-- Favorites Page -->
+<div class="favorites-page" id="favoritesPage">
+  <button type="button" class="back-btn" id="favoritesBackBtn">
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+    Back to Channels
+  </button>
+
+  <div class="favorites-header">
+    <div class="favorites-header-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>
+    </div>
+    <div class="favorites-header-info">
+      <div class="favorites-title">Favorites</div>
+      <div class="favorites-subtitle" id="favoritesSubtitle">Your saved Live TV channels</div>
+    </div>
+    <button type="button" class="back-btn" id="favoritesClearBtn" style="margin:0 0 0 auto;display:none;">
+      Clear All
+    </button>
+  </div>
+
+  <div class="live-category-chips" id="favoritesCategoryChips"></div>
+  <div class="live-grid" id="favoritesGrid"></div>
+</div>
+
+<!-- History Page -->
+<div class="history-page" id="historyPage">
+  <button type="button" class="back-btn" id="historyBackBtn">
+    <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></svg>
+    Back to Channels
+  </button>
+
+  <div class="history-header">
+    <div class="history-header-icon">
+      <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"></path></svg>
+    </div>
+    <div class="history-header-info">
+      <div class="history-title">Watch History</div>
+      <div class="history-subtitle" id="historySubtitle">Channels you watched recently</div>
+    </div>
+    <button type="button" class="history-clear-btn" id="historyClearBtn" style="display:none;">
+      <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path></svg>
+      Clear History
+    </button>
+  </div>
+
+  <div class="live-category-chips" id="historyCategoryChips"></div>
+  <div class="history-list" id="historyList"></div>
 </div>
 
 <!-- Sports Page -->
@@ -245,21 +380,38 @@
   </button>
 
   <div class="sports-header">
-    <div class="sports-header-icon">
-      <svg viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"></path></svg>
+    <div class="sports-header-lead">
+      <div class="sports-header-icon">
+        <svg viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"></path></svg>
+      </div>
+      <div class="sports-header-info">
+        <div class="sports-title">Sports Center</div>
+        <div class="sports-subtitle" id="sportsUpdated">Live scores &amp; upcoming fixtures</div>
+      </div>
     </div>
-    <div class="sports-header-info">
-      <div class="sports-title">Sports Center</div>
-      <div class="sports-subtitle" id="sportsUpdated">Live scores &amp; upcoming fixtures</div>
+    <div class="sports-header-actions">
+      <div class="sports-search-wrap">
+        <svg class="sports-search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path></svg>
+        <input type="text" class="sports-search-input" id="sportsSearchInput" placeholder="Search teams, leagues, channels..." autocomplete="off" aria-label="Search sports matches">
+        <button type="button" class="sports-search-clear" id="sportsSearchClear" aria-label="Clear match search">&times;</button>
+      </div>
+      <button type="button" class="back-btn sports-refresh-btn" id="sportsRefreshBtn">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"></path></svg>
+        Refresh
+      </button>
     </div>
-    <button class="back-btn" id="sportsRefreshBtn" style="margin:0 0 0 auto;">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"></path></svg>
-      Refresh
-    </button>
   </div>
 
-  <div class="sports-chips" id="sportsChips"></div>
+  <div class="sports-toolbar">
+    <div class="sports-status-tabs" id="sportsStatusTabs" role="tablist" aria-label="Match status filter">
+      <button type="button" class="sports-status-tab active" data-status="all" role="tab" aria-selected="true">All <span class="tab-count" id="sportsAllCount"></span></button>
+      <button type="button" class="sports-status-tab" data-status="live" role="tab" aria-selected="false">Live <span class="tab-count" id="sportsLiveCount"></span></button>
+      <button type="button" class="sports-status-tab" data-status="upcoming" role="tab" aria-selected="false">Upcoming <span class="tab-count" id="sportsUpcomingCount"></span></button>
+    </div>
+    <div class="sports-chips" id="sportsChips" role="tablist" aria-label="Sport categories"></div>
+  </div>
   <div class="sports-grid" id="sportsGrid"></div>
+  <div class="sports-load-more-wrap" id="sportsLoadMoreWrap" style="display:none;"></div>
 </div>
 
 <!-- Profile Page -->
@@ -300,6 +452,15 @@
   </div>
 </div>
 
+<!-- Channel Hover Preview Tooltip -->
+<div class="channel-preview-tooltip" id="channelPreviewTooltip" role="tooltip" aria-hidden="true">
+  <div class="channel-preview-media" id="channelPreviewMedia"></div>
+  <div class="channel-preview-body">
+    <div class="channel-preview-meta" id="channelPreviewMeta"></div>
+    <div class="channel-preview-hint" id="channelPreviewHint"></div>
+  </div>
+</div>
+
 <!-- PIN Modal for 18+ Access -->
 <div class="pin-modal-overlay" id="pinModalOverlay">
   <div class="pin-modal">
@@ -335,7 +496,137 @@
   </div>
 </div>
 
-<script src="script.js"></script>
+<!-- Video Player & Picture-in-Picture Shell -->
+<div class="player-backdrop" id="playerBackdrop"></div>
+<section class="player-shell" id="playerShell" role="dialog" aria-modal="true" aria-label="Live TV Video Player" aria-hidden="true">
+  <div class="player-video-wrap" id="playerVideoWrap">
+  <div class="player-header">
+    <div class="player-channel-meta">
+      <div class="player-channel-thumb" id="playerChannelThumb">
+        <svg viewBox="0 0 24 24"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"></path></svg>
+      </div>
+      <div class="player-title-wrap">
+        <div class="player-title" id="playerTitle">Live TV</div>
+        <div class="player-subtitle">
+          <span class="player-live-indicator"><span class="player-live-dot"></span>Live</span>
+          <span aria-hidden="true">·</span>
+          <span id="playerCategory">Channel</span>
+        </div>
+      </div>
+    </div>
+    <div class="player-header-actions">
+      <button type="button" class="player-ctrl-btn" id="playerStreamSwitchBtn" style="display:none;" title="Switch backup stream" aria-label="Switch stream">
+        <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"></path></svg>
+        <span class="ctrl-label" id="playerStreamLabel">Stream 1</span>
+      </button>
+      <button type="button" class="player-ctrl-btn" id="playerPipBtn" title="Minimize to Floating Mini-Player (P)" aria-label="Minimize to Picture-in-Picture">
+        <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"></path></svg>
+        <span class="ctrl-label">Mini PiP</span>
+      </button>
+      <button type="button" class="player-ctrl-btn" id="playerCloseBtn" title="Close player" aria-label="Close player">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+      </button>
+    </div>
+  </div>
 
+  <div class="player-stage" id="playerStage" data-aspect="fit">
+    <video id="playerVideo" playsinline webkit-playsinline autoplay></video>
+    <div class="player-aspect-osd" id="playerAspectOsd" aria-hidden="true">Fit</div>
+
+    <div class="player-status-overlay" id="playerLoadingOverlay">
+      <div class="player-spinner"></div>
+      <div class="player-status-text" id="playerLoadingText">Connecting to stream...</div>
+    </div>
+
+    <div class="player-status-overlay" id="playerErrorOverlay">
+      <div class="player-status-text" id="playerErrorText">Under maintenance. Try later.</div>
+      <div class="player-error-actions">
+        <button type="button" class="player-ctrl-btn primary" id="playerRetryBtn">Retry</button>
+      </div>
+    </div>
+
+    <div class="pip-overlay" id="pipOverlay">
+      <div class="pip-top-bar">
+        <div class="pip-channel-label" id="pipChannelLabel">Live TV</div>
+        <button type="button" class="pip-btn" id="pipCloseBtn" title="Close Mini-Player" aria-label="Close Mini-Player">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+        </button>
+      </div>
+      <div class="pip-bottom-bar">
+        <div class="pip-btn-group">
+          <button type="button" class="pip-btn" id="pipPlayBtn" title="Play / Pause" aria-label="Play or Pause">
+            <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
+          </button>
+          <button type="button" class="pip-btn" id="pipMuteBtn" title="Mute / Unmute" aria-label="Mute or Unmute">
+            <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"></path></svg>
+          </button>
+        </div>
+        <div class="pip-btn-group">
+          <button type="button" class="pip-btn" id="pipNativeBtn" title="Pop out browser Picture-in-Picture" aria-label="Pop out browser Picture-in-Picture">
+            <svg viewBox="0 0 24 24"><path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"></path></svg>
+          </button>
+          <button type="button" class="pip-btn" id="pipExpandBtn" title="Expand player" aria-label="Expand player">
+            <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"></path></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="player-controls">
+    <div class="player-controls-left">
+      <button type="button" class="player-ctrl-btn" id="playerPlayBtn" title="Play / Pause (Space)" aria-label="Play or Pause">
+        <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
+      </button>
+      <button type="button" class="player-ctrl-btn" id="playerMuteBtn" title="Mute / Unmute (M)" aria-label="Mute or Unmute">
+        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>
+      </button>
+      <div class="player-volume-wrap">
+        <input type="range" class="player-volume-slider" id="playerVolume" min="0" max="1" step="0.05" value="1" aria-label="Volume">
+      </div>
+    </div>
+    <div class="player-controls-right">
+      <div class="player-aspect-wrap" id="playerAspectWrap">
+        <button type="button" class="player-ctrl-btn player-aspect-btn" id="playerAspectBtn" title="Screen Mode: Fit, Fill, Zoom (Z)" aria-label="Screen aspect mode" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24"><path d="M19 12h-2v3h-3v2h5v-5zM7 9h3V7H5v5h2V9zm14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"></path></svg>
+          <span class="ctrl-value" id="playerAspectLabel">Fit</span>
+        </button>
+        <div class="player-aspect-menu" id="playerAspectMenu" role="menu" aria-label="Video screen mode"></div>
+      </div>
+      <div class="player-quality-wrap" id="playerQualityWrap">
+        <button type="button" class="player-ctrl-btn player-quality-btn" id="playerQualityBtn" title="Quality Format (Auto-Adjust)" aria-label="Channel quality format" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"></path></svg>
+          <span class="ctrl-value" id="playerQualityLabel">Auto</span>
+        </button>
+        <div class="player-quality-menu" id="playerQualityMenu" role="menu" aria-label="Video quality format"></div>
+      </div>
+      <button type="button" class="player-ctrl-btn" id="playerNativePipBtn" title="Browser Picture-in-Picture window" aria-label="Browser Picture-in-Picture">
+        <svg viewBox="0 0 24 24"><path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"></path></svg>
+        <span class="ctrl-label">Browser PiP</span>
+      </button>
+      <button type="button" class="player-ctrl-btn" id="playerFullscreenBtn" title="Fullscreen (F)" aria-label="Toggle Fullscreen">
+        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"></path></svg>
+      </button>
+    </div>
+  </div>
+  </div>
+
+  <div class="player-random-section" id="playerRandomSection" aria-label="Random channels">
+    <div class="player-random-head">
+      <div class="player-random-title-group">
+        <span class="player-random-title">Random Channels</span>
+        <span class="player-random-sub" aria-hidden="true">&middot;</span>
+        <span class="player-random-sub" id="playerRandomHint">Tap to switch</span>
+      </div>
+      <button type="button" class="player-random-shuffle-btn" id="playerRandomShuffleBtn" title="Shuffle random channels" aria-label="Shuffle random channels">
+        <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"></path></svg>
+        <span>Shuffle</span>
+      </button>
+    </div>
+    <div class="player-random-row" id="playerRandomRow" role="list"></div>
+  </div>
+</section>
+
+<script src="app.js"></script>
 </body>
 </html>
